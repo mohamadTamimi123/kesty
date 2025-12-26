@@ -1,0 +1,437 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Keesti Platform API",
+    "version": "1.0.0",
+    "description": "API specification for Keesti platform - A marketplace connecting customers with suppliers"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.keesti.com/api",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "phone": {"type": "string", "pattern": "^09[0-9]{9}$"},
+          "email": {"type": "string", "format": "email", "nullable": true},
+          "fullName": {"type": "string"},
+          "role": {"type": "string", "enum": ["CUSTOMER", "SUPPLIER", "ADMIN"]},
+          "isActive": {"type": "boolean"},
+          "isBlocked": {"type": "boolean"},
+          "createdAt": {"type": "string", "format": "date-time"},
+          "updatedAt": {"type": "string", "format": "date-time"}
+        },
+        "required": ["id", "phone", "fullName", "role"]
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "title": {"type": "string"},
+          "description": {"type": "string"},
+          "customerId": {"type": "string", "format": "uuid"},
+          "cityId": {"type": "string", "format": "uuid"},
+          "categoryId": {"type": "string", "format": "uuid"},
+          "status": {"type": "string", "enum": ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]},
+          "files": {"type": "array", "items": {"type": "string", "format": "uri"}},
+          "createdAt": {"type": "string", "format": "date-time"},
+          "updatedAt": {"type": "string", "format": "date-time"}
+        },
+        "required": ["id", "title", "description", "customerId", "cityId", "categoryId", "status"]
+      },
+      "Supplier": {
+        "type": "object",
+        "allOf": [
+          {"$ref": "#/components/schemas/User"},
+          {
+            "type": "object",
+            "properties": {
+              "workshopName": {"type": "string"},
+              "logo": {"type": "string", "format": "uri", "nullable": true},
+              "specialties": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+              "cities": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+              "equipment": {"type": "string"},
+              "isVerified": {"type": "boolean"},
+              "isFeatured": {"type": "boolean"}
+            }
+          }
+        ]
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "conversationId": {"type": "string", "format": "uuid"},
+          "senderId": {"type": "string", "format": "uuid"},
+          "content": {"type": "string"},
+          "createdAt": {"type": "string", "format": "date-time"}
+        },
+        "required": ["id", "conversationId", "senderId", "content"]
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "projectId": {"type": "string", "format": "uuid", "nullable": true},
+          "supplierId": {"type": "string", "format": "uuid", "nullable": true},
+          "customerId": {"type": "string", "format": "uuid"},
+          "rating": {"type": "integer", "minimum": 1, "maximum": 5},
+          "comment": {"type": "string"},
+          "createdAt": {"type": "string", "format": "date-time"}
+        },
+        "required": ["id", "customerId", "rating"]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {"type": "string"},
+          "message": {"type": "string"},
+          "statusCode": {"type": "integer"}
+        },
+        "required": ["error", "message", "statusCode"]
+      }
+    }
+  },
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {"type": "string", "pattern": "^09[0-9]{9}$"},
+                  "fullName": {"type": "string"}
+                },
+                "required": ["phone", "fullName"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OTP sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {"type": "string"},
+                    "expiresIn": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "409": {"$ref": "#/components/responses/Conflict"}
+        }
+      }
+    },
+    "/auth/verify-otp": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify OTP code",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {"type": "string"},
+                  "otp": {"type": "string", "pattern": "^[0-9]{6}$"}
+                },
+                "required": ["phone", "otp"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified, user authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accessToken": {"type": "string"},
+                    "user": {"$ref": "#/components/schemas/User"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/auth/google": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Authenticate with Google",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idToken": {"type": "string"}
+                },
+                "required": ["idToken"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Google authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accessToken": {"type": "string"},
+                    "user": {"$ref": "#/components/schemas/User"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "Get projects list",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {"name": "role", "in": "query", "schema": {"type": "string", "enum": ["CUSTOMER", "SUPPLIER"]}},
+          {"name": "status", "in": "query", "schema": {"type": "string"}},
+          {"name": "cityId", "in": "query", "schema": {"type": "string", "format": "uuid"}},
+          {"name": "categoryId", "in": "query", "schema": {"type": "string", "format": "uuid"}},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Projects list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {"$ref": "#/components/schemas/Project"}
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {"type": "integer"},
+                        "limit": {"type": "integer"},
+                        "total": {"type": "integer"},
+                        "totalPages": {"type": "integer"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Create new project",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {"type": "string"},
+                  "description": {"type": "string"},
+                  "cityId": {"type": "string", "format": "uuid"},
+                  "categoryId": {"type": "string", "format": "uuid"},
+                  "files": {"type": "array", "items": {"type": "string", "format": "uri"}}
+                },
+                "required": ["title", "description", "cityId", "categoryId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Project"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get users list (Admin only)",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Users list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/User"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/suppliers": {
+      "get": {
+        "tags": ["Suppliers"],
+        "summary": "Get suppliers list",
+        "parameters": [
+          {"name": "cityId", "in": "query", "schema": {"type": "string", "format": "uuid"}},
+          {"name": "specialtyId", "in": "query", "schema": {"type": "string", "format": "uuid"}},
+          {"name": "isVerified", "in": "query", "schema": {"type": "boolean"}},
+          {"name": "isFeatured", "in": "query", "schema": {"type": "boolean"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Suppliers list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/Supplier"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/messages": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Get conversations",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Conversations list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string", "format": "uuid"},
+                      "projectId": {"type": "string", "format": "uuid"},
+                      "participants": {
+                        "type": "array",
+                        "items": {"$ref": "#/components/schemas/User"}
+                      },
+                      "lastMessage": {"$ref": "#/components/schemas/Message"},
+                      "unreadCount": {"type": "integer"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Messages"],
+        "summary": "Send message",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "conversationId": {"type": "string", "format": "uuid"},
+                  "content": {"type": "string"}
+                },
+                "required": ["conversationId", "content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Message sent",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Message"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/Error"}
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/Error"}
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/Error"}
+          }
+        }
+      }
+    }
+  }
+}

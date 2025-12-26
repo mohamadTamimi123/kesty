@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+/* Font Faces */
+@font-face {
+  font-family: 'IRANSansX';
+  src: url('/iransans Variable/webfont/IRANSansXV.woff2') format('woff2'),
+       url('/iransans Variable/webfont/IRANSansXV.woff') format('woff');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lahzeh Variable';
+  src: url('/Lahzeh Variable/Lahzeh Variable  Webfonts/Lahzeh-FamilyVF.woff2') format('woff2-variations'),
+       url('/Lahzeh Variable/Lahzeh Variable  Webfonts/Lahzeh-FamilyVF.woff') format('woff-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Brand Colors */
+  --brand-light-gray: #d3d6db;
+  --brand-dark-blue: #233b6e;
+  --brand-medium-blue: #415f9d;
+  --brand-light-sky: #cde6f8;
+  --brand-off-white: #eff0f2;
+  --brand-medium-gray: #b7bcc4;
+  
+  /* Background and Foreground using Brand Colors */
+  --background: #eff0f2;
+  --foreground: #233b6e;
+}
+
+@theme inline {
+  /* Fonts */
+  --font-sans: 'IRANSansX', var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-geist-mono);
+  --font-display: 'Lahzeh Variable', 'IRANSansX', Arial, Helvetica, sans-serif;
+  
+  /* Brand Colors - Background, Text, Border utilities */
+  --color-brand-light-gray: #d3d6db;
+  --color-brand-dark-blue: #233b6e;
+  --color-brand-medium-blue: #415f9d;
+  --color-brand-light-sky: #cde6f8;
+  --color-brand-off-white: #eff0f2;
+  --color-brand-medium-gray: #b7bcc4;
+  
+  /* Background and Foreground */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  /* Brand Shadows - Utility classes */
+  --shadow-brand: 0 4px 14px 0 rgba(35, 59, 110, 0.15);
+  --shadow-brand-lg: 0 10px 25px 0 rgba(35, 59, 110, 0.2);
+  
+  /* Ring Colors for Focus States */
+  --ring-brand-medium-blue: var(--color-brand-medium-blue);
+  --ring-brand-dark-blue: var(--color-brand-dark-blue);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'IRANSansX', 'Lahzeh Variable', Arial, Helvetica, sans-serif;
+}
+
+/* Custom Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.6s ease-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

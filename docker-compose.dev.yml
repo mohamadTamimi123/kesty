@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: kisty-postgres-dev
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      POSTGRES_DB: ${DATABASE_NAME:-keesti_db}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: kisty-redis-dev
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_password}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend Service - Disabled
+  # backend:
+  #   build:
+  #     context: ..
+  #     dockerfile: ./kisty/backend/Dockerfile
+  #   container_name: kisty-backend-dev
+  #   environment:
+  #     NODE_ENV: development
+  #     PM2_CWD: /app
+  #     DATABASE_HOST: postgres
+  #     DATABASE_PORT: 5432
+  #     DATABASE_USER: ${DATABASE_USER:-postgres}
+  #     DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+  #     DATABASE_NAME: ${DATABASE_NAME:-keesti_db}
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #     REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_password}
+  #     JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+  #     JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+  #     PORT: 3001
+  #     API_PREFIX: /api
+  #     FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+  #     GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  #     GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  #     OTP_MOCK_MODE: ${OTP_MOCK_MODE:-true}
+  #     OTP_SERVICE_URL: ${OTP_SERVICE_URL:-}
+  #     OTP_SERVICE_API_KEY: ${OTP_SERVICE_API_KEY:-}
+  #   volumes:
+  #     - ../api/project-name:/app
+  #     - /app/node_modules
+  #     - backend_logs:/app/logs
+  #   ports:
+  #     - "3001:3001"
+  #   networks:
+  #     - backend-network
+  #     - frontend-network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   command: pm2-runtime start ecosystem.config.js --env development
+
+  # Frontend Service - Disabled
+  # frontend:
+  #   build:
+  #     context: ..
+  #     dockerfile: ./kisty/frontend/Dockerfile
+  #   container_name: kisty-frontend-dev
+  #   environment:
+  #     NODE_ENV: development
+  #     PM2_CWD: /app
+  #     NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
+  #   volumes:
+  #     - ../kisty-ui:/app
+  #     - /app/node_modules
+  #     - /app/.next
+  #     - frontend_logs:/app/logs
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - frontend-network
+  #   restart: unless-stopped
+  #   command: pm2-runtime start ecosystem.config.js --env development
+
+  # Nginx Reverse Proxy - Disabled
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: kisty-nginx-dev
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+  #   ports:
+  #     - "80:80"
+  #   networks:
+  #     - frontend-network
+  #     - backend-network
+  #   depends_on:
+  #     - backend
+  #     - frontend
+  #   restart: unless-stopped
+
+networks:
+  backend-network:
+    driver: bridge
+    internal: false
+  # frontend-network:
+  #   driver: bridge
+  #   internal: false
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  # backend_logs:
+  #   driver: local
+  # frontend_logs:
+  #   driver: local
+
