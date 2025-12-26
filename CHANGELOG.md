@@ -5,7 +5,7 @@
 فرمت بر اساس [Keep a Changelog](https://keepachangelog.com/fa-IR/1.0.0/) است،
 و این پروژه از [Semantic Versioning](https://semver.org/lang/fa/) پیروی می‌کند.
 
-## [1.0.0] - 2024-12-XX
+## [1.0.0] - 2024-12-19
 
 ### اضافه شده
 - سیستم احراز هویت کامل با OTP و JWT
