@@ -1,5 +1,6 @@
 import { Category } from './category';
 import { User } from './user';
+import { Supplier } from './supplier';
 
 export enum QuantityRange {
   LESS_THAN_100 = 'LESS_THAN_100',
@@ -40,7 +41,7 @@ export interface Portfolio {
   id: string;
   title: string;
   supplierId: string;
-  supplier?: User;
+  supplier?: Supplier;
   categoryId: string;
   category?: Category;
   subcategoryId?: string;
@@ -67,19 +68,19 @@ export interface CreatePortfolioData {
   categoryId: string;
   subcategoryId?: string;
   projectId?: string;
-  completionDate: string;
-  quantityRange?: QuantityRange;
-  description: string;
-  customerName?: string;
+  completionDate: string; // Required
+  quantityRange?: QuantityRange; // Required: <100, 100-1000, >1000
+  description: string; // Project challenges, solutions
+  customerName?: string; // Optional, only if permission granted
   customerId?: string;
-  isPublic?: boolean;
-  machineIds?: string[];
-  materialIds?: string[];
+  isPublic?: boolean; // Show in public gallery
+  machineIds?: string[]; // Multiple selection from predefined list
+  materialIds?: string[]; // From predefined list
   images?: {
     imageUrl: string;
     order?: number;
     isPrimary?: boolean;
-  }[];
+  }[]; // Minimum 1 image required
 }
 
 export interface UpdatePortfolioData extends Partial<CreatePortfolioData> {}

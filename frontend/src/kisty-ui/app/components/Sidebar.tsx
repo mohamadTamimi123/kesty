@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import * as React from "react";
 import { usePathname } from "next/navigation";
 import {
   Squares2X2Icon,
@@ -20,14 +21,21 @@ import {
   WrenchScrewdriverIcon,
   CubeIcon,
   TrophyIcon,
+  DocumentArrowDownIcon,
+  BookOpenIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../contexts/AuthContext";
+import { useChatSafe } from "../hooks/useChatSafe";
 
 interface SidebarItem {
   label: string;
-  href: string;
+  href?: string;
   icon: React.ReactNode;
   badge?: number;
+  onClick?: () => void;
+  children?: SidebarItem[];
 }
 
 interface SidebarProps {
@@ -38,6 +46,27 @@ interface SidebarProps {
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const chatContext = useChatSafe();
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  
+  const openChatModal = chatContext?.openChatModal;
+  const openChatSidebar = chatContext?.openChatSidebar;
+  const isChatSidebarOpen = chatContext?.isChatSidebarOpen || false;
+  const unreadCount = chatContext?.unreadCount || 0;
+
+  const toggleExpanded = (label: string) => {
+    setExpandedItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(label)) {
+        newSet.delete(label);
+      } else {
+        newSet.add(label);
+      }
+      return newSet;
+    });
+  };
+
+  const isItemExpanded = (label: string) => expandedItems.has(label);
 
   const customerItems: SidebarItem[] = [
     {
@@ -56,6 +85,11 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       icon: <DocumentTextIcon className="w-5 h-5" />,
     },
     {
+      label: "فاکتورها",
+      href: "/dashboard/customer/invoices",
+      icon: <DocumentArrowDownIcon className="w-5 h-5" />,
+    },
+    {
       label: "درخواست‌های نظر",
       href: "/dashboard/customer/reviews/requests",
       icon: <StarIcon className="w-5 h-5" />,
@@ -67,9 +101,16 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     },
     {
       label: "پیام‌ها",
-      href: "/messaging",
+      href: "#",
       icon: <ChatBubbleLeftRightIcon className="w-5 h-5" />,
-      badge: 3,
+      badge: unreadCount > 0 ? unreadCount : undefined,
+      onClick: () => {
+        if (openChatSidebar) {
+          openChatSidebar();
+        } else if (openChatModal) {
+          openChatModal();
+        }
+      },
     },
     {
       label: "پروفایل",
@@ -85,30 +126,40 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       icon: <Squares2X2Icon className="w-5 h-5" />,
     },
     {
-      label: "نمونه کارها",
+      label: "مدیریت پروژه‌ها",
+      icon: <DocumentTextIcon className="w-5 h-5" />,
+      children: [
+        {
+          label: "پروژه‌های مرتبط",
+          href: "/dashboard/supplier/projects",
+          icon: <DocumentTextIcon className="w-4 h-4" />,
+        },
+        {
+          label: "پروژه‌های من",
+          href: "/dashboard/supplier/my-projects",
+          icon: <DocumentTextIcon className="w-4 h-4" />,
+        },
+      ],
+    },
+    {
+      label: "پروفایل",
+      href: "/dashboard/supplier/profile",
+      icon: <UserIcon className="w-5 h-5" />,
+    },
+    {
+      label: "نمونه کار ها",
       href: "/dashboard/supplier/portfolio",
       icon: <PhotoIcon className="w-5 h-5" />,
     },
     {
-      label: "درخواست‌های نظر",
-      href: "/dashboard/supplier/reviews/requests",
+      label: "امتیاز من",
+      href: "/dashboard/supplier/rating",
       icon: <StarIcon className="w-5 h-5" />,
     },
     {
       label: "نظرات دریافت شده",
       href: "/dashboard/supplier/reviews",
       icon: <StarIcon className="w-5 h-5" />,
-    },
-    {
-      label: "پیام‌ها",
-      href: "/messaging",
-      icon: <ChatBubbleLeftRightIcon className="w-5 h-5" />,
-      badge: 5,
-    },
-    {
-      label: "پروفایل",
-      href: "/dashboard/supplier/profile",
-      icon: <UserIcon className="w-5 h-5" />,
     },
   ];
 
@@ -137,6 +188,11 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       label: "پروژه‌ها",
       href: "/dashboard/admin/projects",
       icon: <DocumentTextIcon className="w-5 h-5" />,
+    },
+    {
+      label: "مدیریت مقالات",
+      href: "/dashboard/admin/articles",
+      icon: <BookOpenIcon className="w-5 h-5" />,
     },
     {
       label: "مدیریت نظرات",
@@ -182,13 +238,37 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   };
 
   const items = getItems();
+  
+  // Auto-expand parent items if any child is active
+  useEffect(() => {
+    const currentItems = getItems();
+    const newExpanded = new Set<string>();
+    currentItems.forEach((item) => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(
+          (child) =>
+            child.href &&
+            (pathname === child.href || pathname?.startsWith(child.href + "/"))
+        );
+        if (hasActiveChild) {
+          newExpanded.add(item.label);
+        }
+      }
+    });
+    setExpandedItems((prev) => {
+      // Merge with existing expanded items to preserve user interactions
+      const merged = new Set(prev);
+      newExpanded.forEach((label) => merged.add(label));
+      return merged;
+    });
+  }, [pathname, user?.role]);
 
   return (
     <>
       {/* Mobile Overlay */}
       {isOpen && onClose && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-[45] lg:hidden"
           onClick={onClose}
         />
       )}
@@ -196,9 +276,9 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:sticky top-0 right-0 h-screen w-64 bg-white border-l border-brand-medium-gray z-50
+          fixed top-0 right-0 h-screen w-64 bg-white border-l border-brand-medium-gray z-[50]
           transform transition-transform duration-300 ease-in-out overflow-y-auto
-          ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+          ${onClose ? (isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0') : 'translate-x-0'}
         `}
       >
         <div className="p-4">
@@ -266,17 +346,112 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
         <nav className="space-y-1">
           {items.map((item) => {
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+            const hasChildren = item.children && item.children.length > 0;
+            const isChildActive = hasChildren
+              ? item.children!.some(
+                  (child) =>
+                    child.href &&
+                    (pathname === child.href || pathname?.startsWith(child.href + "/"))
+                )
+              : false;
+            const isActive = item.href
+              ? pathname === item.href || pathname?.startsWith(item.href + "/")
+              : false;
             const isCreateButton = item.href === "/dashboard/customer/projects/create";
+            const isChatButton = item.href === "#" && item.label === "پیام‌ها";
+            const isChatActive = isChatButton && isChatSidebarOpen;
+            const isExpanded = hasChildren ? isItemExpanded(item.label) : false;
+            const isParentActive = hasChildren && (isActive || isChildActive);
+
+            const handleClick = (e: React.MouseEvent) => {
+              if (hasChildren) {
+                e.preventDefault();
+                toggleExpanded(item.label);
+                return;
+              }
+              if (item.onClick) {
+                e.preventDefault();
+                item.onClick();
+                if (onClose) onClose();
+              } else if (onClose) {
+                onClose();
+              }
+            };
+
+            if (hasChildren) {
+              return (
+                <div key={item.label}>
+                  <button
+                    onClick={handleClick}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                      isParentActive
+                        ? "bg-brand-light-sky text-brand-dark-blue font-medium border-r-4 border-brand-medium-blue"
+                        : "text-brand-medium-blue hover:bg-brand-off-white hover:text-brand-dark-blue"
+                    }`}
+                  >
+                    <span
+                      className={
+                        isParentActive
+                          ? "text-brand-medium-blue"
+                          : "text-brand-medium-gray group-hover:text-brand-medium-blue"
+                      }
+                    >
+                      {item.icon}
+                    </span>
+                    <span className="flex-1 text-right">{item.label}</span>
+                    {isExpanded ? (
+                      <ChevronDownIcon className="w-4 h-4 text-brand-medium-gray" />
+                    ) : (
+                      <ChevronRightIcon className="w-4 h-4 text-brand-medium-gray" />
+                    )}
+                  </button>
+                  {isExpanded && (
+                    <div className="mr-4 mt-1 space-y-1">
+                      {item.children!.map((child) => {
+                        const isChildItemActive =
+                          child.href &&
+                          (pathname === child.href || pathname?.startsWith(child.href + "/"));
+                        return (
+                          <Link
+                            key={child.href || child.label}
+                            href={child.href || "#"}
+                            onClick={() => {
+                              if (onClose) onClose();
+                            }}
+                            className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 ${
+                              isChildItemActive
+                                ? "bg-brand-light-sky text-brand-dark-blue font-medium border-r-2 border-brand-medium-blue"
+                                : "text-brand-medium-blue hover:bg-brand-off-white hover:text-brand-dark-blue"
+                            }`}
+                          >
+                            <span
+                              className={
+                                isChildItemActive
+                                  ? "text-brand-medium-blue"
+                                  : "text-brand-medium-gray"
+                              }
+                            >
+                              {child.icon}
+                            </span>
+                            <span className="flex-1 text-right text-sm">{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
+                key={item.href || item.label}
+                href={item.href || "#"}
+                onClick={handleClick}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
                   isCreateButton
                     ? "bg-brand-medium-blue text-white font-medium hover:bg-brand-dark-blue shadow-md"
-                    : isActive
+                    : isActive || isChatActive
                     ? "bg-brand-light-sky text-brand-dark-blue font-medium border-r-4 border-brand-medium-blue"
                     : "text-brand-medium-blue hover:bg-brand-off-white hover:text-brand-dark-blue"
                 }`}
@@ -285,7 +460,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                   className={`${
                     isCreateButton
                       ? "text-white"
-                      : isActive
+                      : isActive || isChatActive
                       ? "text-brand-medium-blue"
                       : "text-brand-medium-gray group-hover:text-brand-medium-blue"
                   }`}

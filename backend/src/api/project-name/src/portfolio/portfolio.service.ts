@@ -114,7 +114,28 @@ export class PortfolioService {
       }
     }
 
-    return this.portfolioRepository.save(portfolio);
+    const savedPortfolio = await this.portfolioRepository.save(portfolio);
+
+    // Handle images update
+    if (updatePortfolioDto.images !== undefined) {
+      // Delete existing images
+      await this.portfolioImageRepository.delete({ portfolioId: savedPortfolio.id });
+
+      // Create new images
+      if (updatePortfolioDto.images.length > 0) {
+        const images = updatePortfolioDto.images.map((img, index) =>
+          this.portfolioImageRepository.create({
+            portfolioId: savedPortfolio.id,
+            imageUrl: img.imageUrl,
+            order: img.order ?? index,
+            isPrimary: img.isPrimary ?? index === 0,
+          }),
+        );
+        await this.portfolioImageRepository.save(images);
+      }
+    }
+
+    return this.findOne(savedPortfolio.id);
   }
 
   async remove(id: string, supplier: User): Promise<void> {
@@ -236,6 +257,93 @@ export class PortfolioService {
 
   async incrementViewCount(id: string): Promise<void> {
     await this.portfolioRepository.increment({ id }, 'viewCount', 1);
+  }
+
+  async findPending(
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{ data: Portfolio[]; total: number; page: number; limit: number; totalPages: number }> {
+    const [data, total] = await this.portfolioRepository.findAndCount({
+      where: { isVerified: false },
+      relations: ['supplier', 'category', 'images'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async verify(id: string): Promise<Portfolio> {
+    const portfolio = await this.findOne(id);
+    portfolio.isVerified = true;
+    return this.portfolioRepository.save(portfolio);
+  }
+
+  async unverify(id: string): Promise<Portfolio> {
+    const portfolio = await this.findOne(id);
+    portfolio.isVerified = false;
+    return this.portfolioRepository.save(portfolio);
+  }
+
+  async getStats(supplierId: string): Promise<{
+    total: number;
+    totalViews: number;
+    averageRating: number;
+    verifiedCount: number;
+    publicCount: number;
+    recentPortfolios: Portfolio[];
+    topPortfolios: Portfolio[];
+  }> {
+    const portfolios = await this.portfolioRepository.find({
+      where: { supplierId },
+      relations: ['category', 'images'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const total = portfolios.length;
+    const totalViews = portfolios.reduce((sum, p) => sum + (p.viewCount || 0), 0);
+    
+    const ratings = portfolios
+      .filter((p) => p.rating && p.rating > 0)
+      .map((p) => p.rating!);
+    const averageRating =
+      ratings.length > 0
+        ? Math.round((ratings.reduce((sum, r) => sum + r, 0) / ratings.length) * 10) / 10
+        : 0;
+
+    const verifiedCount = portfolios.filter((p) => p.isVerified).length;
+    const publicCount = portfolios.filter((p) => p.isPublic).length;
+
+    // Recent portfolios (last 3)
+    const recentPortfolios = [...portfolios]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 3);
+
+    // Top portfolios (by rating or views)
+    const topPortfolios = [...portfolios]
+      .sort((a, b) => {
+        const aScore = (a.rating || 0) * 10 + (a.viewCount || 0);
+        const bScore = (b.rating || 0) * 10 + (b.viewCount || 0);
+        return bScore - aScore;
+      })
+      .slice(0, 3);
+
+    return {
+      total,
+      totalViews,
+      averageRating,
+      verifiedCount,
+      publicCount,
+      recentPortfolios,
+      topPortfolios,
+    };
   }
 }
 

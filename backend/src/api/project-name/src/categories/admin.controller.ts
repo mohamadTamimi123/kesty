@@ -53,6 +53,12 @@ export class AdminCategoriesController {
     return categories;
   }
 
+  @Get('tree')
+  @HttpCode(HttpStatus.OK)
+  async getCategoryTree() {
+    return this.categoriesService.getCategoryTree();
+  }
+
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async getCategoryById(@Param('id') id: string) {
@@ -119,6 +125,8 @@ export class AdminCategoriesController {
       iconUrl,
       metaTitle: createCategoryDto.metaTitle,
       metaDescription: createCategoryDto.metaDescription,
+      parentId: createCategoryDto.parentId,
+      order: createCategoryDto.order,
     });
 
     return category;
@@ -189,6 +197,27 @@ export class AdminCategoriesController {
   async deleteCategory(@Param('id') id: string) {
     await this.categoriesService.delete(id);
     return { message: 'کتگوری با موفقیت حذف شد' };
+  }
+
+  @Put('reorder')
+  @HttpCode(HttpStatus.OK)
+  async reorderCategories(@Body() body: { categoryIds: string[] }) {
+    await this.categoriesService.reorderCategories(body.categoryIds);
+    return { message: 'ترتیب دسته‌ها با موفقیت تغییر کرد' };
+  }
+
+  @Put(':id/move')
+  @HttpCode(HttpStatus.OK)
+  async moveCategory(
+    @Param('id') id: string,
+    @Body() body: { newParentId: string | null; newOrder?: number },
+  ) {
+    const category = await this.categoriesService.moveCategory(
+      id,
+      body.newParentId,
+      body.newOrder,
+    );
+    return category;
   }
 }
 

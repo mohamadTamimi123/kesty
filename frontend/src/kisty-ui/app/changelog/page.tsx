@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import ChangelogItem from "../components/ChangelogItem";
+import ChangelogSkeleton from "../components/ChangelogSkeleton";
 import {
   ChangelogTask,
   TaskStatus,
@@ -12,6 +13,9 @@ import {
 } from "../types/changelog";
 import apiClient from "../lib/api";
 import toast from "react-hot-toast";
+import logger from "../utils/logger";
+import { getErrorMessage } from "../utils/errorHandler";
+import { AxiosErrorResponse } from "../types/api";
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -45,7 +49,27 @@ export default function ChangelogPage() {
   const [testStatusFilter, setTestStatusFilter] = useState<TestStatus | "all">("all");
   const [moduleFilter, setModuleFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedQuery, setDebouncedQuery] = useState<string>("");
 
+  const filteredTasks =
+    filter === "all"
+      ? tasks
+      : tasks.filter((t) => t.status === filter);
+
+  // Get unique modules from tasks
+  const uniqueModules = Array.from(
+    new Set(tasks.map((t) => t.relatedModule).filter((m): m is string => !!m))
+  ).sort();
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
+  // Use debounced query for API calls
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -64,8 +88,8 @@ export default function ChangelogPage() {
         if (moduleFilter) {
           filters.relatedModule = moduleFilter;
         }
-        if (searchQuery) {
-          filters.search = searchQuery;
+        if (debouncedQuery) {
+          filters.search = debouncedQuery;
         }
 
         const [allTasks, statsData] = await Promise.all([
@@ -75,38 +99,36 @@ export default function ChangelogPage() {
 
         setTasks(allTasks);
         setStats(statsData);
-        setDoneTasks(allTasks.filter((t) => t.status === TaskStatus.DONE));
+        setDoneTasks(allTasks.filter((t: ChangelogTask) => t.status === TaskStatus.DONE));
         setPendingTasks(
           allTasks.filter(
-            (t) => t.status === TaskStatus.PENDING || t.status === TaskStatus.IN_PROGRESS
+            (t: ChangelogTask) => t.status === TaskStatus.PENDING || t.status === TaskStatus.IN_PROGRESS
           )
         );
-      } catch (error: any) {
-        console.error("Error fetching changelog:", error);
-        toast.error(error.response?.data?.message || "خطا در دریافت لیست تسک‌ها");
+      } catch (error: unknown) {
+        logger.error("Error fetching changelog", error);
+        toast.error(getErrorMessage(error));
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, [filter, changeTypeFilter, testStatusFilter, moduleFilter, searchQuery]);
-
-  const filteredTasks =
-    filter === "all"
-      ? tasks
-      : tasks.filter((t) => t.status === filter);
-
-  // Get unique modules from tasks
-  const uniqueModules = Array.from(
-    new Set(tasks.map((t) => t.relatedModule).filter((m): m is string => !!m))
-  ).sort();
+  }, [filter, changeTypeFilter, testStatusFilter, moduleFilter, debouncedQuery]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-brand-off-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center text-brand-medium-blue">در حال بارگذاری...</div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-brand-dark-blue font-display mb-4">
+              تغییرات و تسک‌های پروژه
+            </h1>
+            <p className="text-lg text-brand-medium-blue mb-6">
+              لیست کامل تسک‌های انجام شده و در حال انجام پروژه کیستی
+            </p>
+          </div>
+          <ChangelogSkeleton />
         </div>
       </div>
     );
@@ -386,8 +408,14 @@ export default function ChangelogPage() {
                   تسک‌های انجام شده ({doneTasks.length})
                 </h2>
                 <div className="space-y-4">
-                  {doneTasks.map((task) => (
-                    <ChangelogItem key={task.id} task={task} />
+                  {doneTasks.map((task, index) => (
+                    <div
+                      key={task.id}
+                      className="animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <ChangelogItem task={task} />
+                    </div>
                   ))}
                 </div>
               </section>
@@ -401,8 +429,14 @@ export default function ChangelogPage() {
                   تسک‌های باقی‌مانده ({pendingTasks.length})
                 </h2>
                 <div className="space-y-4">
-                  {pendingTasks.map((task) => (
-                    <ChangelogItem key={task.id} task={task} />
+                  {pendingTasks.map((task, index) => (
+                    <div
+                      key={task.id}
+                      className="animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <ChangelogItem task={task} />
+                    </div>
                   ))}
                 </div>
               </section>
@@ -411,22 +445,34 @@ export default function ChangelogPage() {
         ) : (
           <div className="space-y-4">
             {filteredTasks.length > 0 ? (
-              filteredTasks.map((task) => (
-                <ChangelogItem key={task.id} task={task} />
+              filteredTasks.map((task, index) => (
+                <div
+                  key={task.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <ChangelogItem task={task} />
+                </div>
               ))
             ) : (
               <div className="bg-white rounded-lg border border-brand-medium-gray p-12 text-center">
-                <p className="text-brand-medium-blue">
+                <ClockIcon className="w-16 h-16 text-brand-medium-gray mx-auto mb-4" />
+                <p className="text-brand-medium-blue text-lg mb-2">
                   تسکی با این وضعیت یافت نشد
+                </p>
+                <p className="text-brand-medium-gray text-sm">
+                  لطفا فیلترها را تغییر دهید یا وضعیت دیگری را انتخاب کنید
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {tasks.length === 0 && (
+        {tasks.length === 0 && !isLoading && (
           <div className="bg-white rounded-lg border border-brand-medium-gray p-12 text-center">
-            <p className="text-brand-medium-blue">هنوز تسکی ثبت نشده است</p>
+            <ExclamationTriangleIcon className="w-16 h-16 text-brand-medium-gray mx-auto mb-4" />
+            <p className="text-brand-medium-blue text-lg mb-2">هنوز تسکی ثبت نشده است</p>
+            <p className="text-brand-medium-gray text-sm">تسک‌ها بعد از ثبت در این بخش نمایش داده می‌شوند</p>
           </div>
         )}
 
@@ -1915,6 +1961,491 @@ export default function ChangelogPage() {
                 <button className="px-8 py-3 bg-transparent border-2 border-white text-white font-bold rounded-lg hover:bg-white hover:text-brand-medium-blue transition-all">
                   تماس با ما
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pages Status View - New Section */}
+        {viewMode === "tasks" && (
+          <div className="mt-12 space-y-6">
+            {/* Pages Status Section */}
+            <div className="bg-white rounded-lg border border-brand-medium-gray p-6">
+              <h2 className="text-2xl font-bold text-brand-dark-blue mb-6 font-display">
+                وضعیت صفحات سیستم
+              </h2>
+              
+              {/* Public Pages */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-brand-dark-blue mb-4">صفحات عمومی</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">صفحه اصلی</p>
+                      <p className="text-xs text-green-600">/</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">درباره ما</p>
+                      <p className="text-xs text-green-600">/about</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">تماس با ما</p>
+                      <p className="text-xs text-green-600">/contact</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">سوالات متداول</p>
+                      <p className="text-xs text-green-600">/faq</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">تغییرات</p>
+                      <p className="text-xs text-green-600">/changelog</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">برندبوک</p>
+                      <p className="text-xs text-green-600">/brandbook</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">ورود</p>
+                      <p className="text-xs text-green-600">/login</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">ثبت نام</p>
+                      <p className="text-xs text-green-600">/register</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">تایید OTP</p>
+                      <p className="text-xs text-green-600">/otp</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">ورود ادمین</p>
+                      <p className="text-xs text-green-600">/admin/login</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content Pages */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-brand-dark-blue mb-4">صفحات محتوا</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">مقالات آموزشی</p>
+                      <p className="text-xs text-green-600">/education</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">جزئیات مقاله</p>
+                      <p className="text-xs text-green-600">/education/[slug]</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">دسته‌بندی</p>
+                      <p className="text-xs text-green-600">/category/[slug]</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">شهر</p>
+                      <p className="text-xs text-green-600">/city/[slug]</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">شهر و دسته‌بندی</p>
+                      <p className="text-xs text-green-600">/city/[slug]/category/[categorySlug]</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">پروفایل تولیدکننده</p>
+                      <p className="text-xs text-green-600">/supplier/[slug]</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">بازارگاه ماشین‌آلات</p>
+                      <p className="text-xs text-green-600">/machinery-market</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">جزئیات ماشین</p>
+                      <p className="text-xs text-green-600">/machinery-market/[slug]</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">پروژه‌ها</p>
+                      <p className="text-xs text-green-600">/projects</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Messaging Pages */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-brand-dark-blue mb-4">صفحات پیام‌رسانی</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">لیست مکالمات</p>
+                      <p className="text-xs text-green-600">/messaging</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">مکالمه</p>
+                      <p className="text-xs text-green-600">/messaging/[conversationId]</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dashboard Pages */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-brand-dark-blue mb-4">صفحات داشبورد</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">داشبورد مشتری</p>
+                      <p className="text-xs text-green-600">/dashboard/customer</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">پروژه‌های مشتری</p>
+                      <p className="text-xs text-green-600">/dashboard/customer/projects</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">ایجاد پروژه</p>
+                      <p className="text-xs text-green-600">/dashboard/customer/projects/create</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">جزئیات پروژه</p>
+                      <p className="text-xs text-green-600">/dashboard/customer/projects/[id]</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">پروفایل مشتری</p>
+                      <p className="text-xs text-green-600">/dashboard/customer/profile</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">نظرات مشتری</p>
+                      <p className="text-xs text-green-600">/dashboard/customer/reviews</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">پیام‌های مشتری</p>
+                      <p className="text-xs text-green-600">/dashboard/customer/messages</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">داشبورد تولیدکننده</p>
+                      <p className="text-xs text-green-600">/dashboard/supplier</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">پروفایل تولیدکننده</p>
+                      <p className="text-xs text-green-600">/dashboard/supplier/profile</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">نمونه کارها</p>
+                      <p className="text-xs text-green-600">/dashboard/supplier/portfolio</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">نظرات تولیدکننده</p>
+                      <p className="text-xs text-green-600">/dashboard/supplier/reviews</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">پیام‌های تولیدکننده</p>
+                      <p className="text-xs text-green-600">/dashboard/supplier/messages</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">داشبورد ادمین</p>
+                      <p className="text-xs text-green-600">/dashboard/admin</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">مدیریت دسته‌بندی‌ها</p>
+                      <p className="text-xs text-green-600">/dashboard/admin/categories</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">مدیریت شهرها</p>
+                      <p className="text-xs text-green-600">/dashboard/admin/cities</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">مدیریت کاربران</p>
+                      <p className="text-xs text-green-600">/dashboard/admin/users</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Flow Checklist Section */}
+            <div className="bg-white rounded-lg border border-brand-medium-gray p-6">
+              <h2 className="text-2xl font-bold text-brand-dark-blue mb-6 font-display">
+                چک‌لیست بررسی فلوها قبل از QA
+              </h2>
+              
+              <div className="space-y-6">
+                {/* Registration Flow */}
+                <div className="border-r-4 border-blue-500 bg-blue-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-3">فلو ثبت نام</h3>
+                  <div className="space-y-2 text-blue-700">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>صفحه /register باز می‌شود و فرم نمایش داده می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>Validation شماره موبایل (11 رقمی، شروع با 09) کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>Validation رمز عبور (حداقل 8 کاراکتر) کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>ارسال OTP پس از ثبت نام موفق انجام می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>هدایت به صفحه /otp با اطلاعات صحیح انجام می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>تایید OTP و ورود به داشبورد مناسب کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>خطاهای مناسب نمایش داده می‌شوند (شماره تکراری، رمز ضعیف و غیره)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Login Flow */}
+                <div className="border-r-4 border-green-500 bg-green-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-green-800 mb-3">فلو ورود</h3>
+                  <div className="space-y-2 text-green-700">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>صفحه /login باز می‌شود و فرم نمایش داده می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>Validation شماره موبایل کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>ارسال OTP پس از ورود شماره موبایل انجام می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>هدایت به صفحه /otp انجام می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>تایید OTP و ورود به داشبورد مناسب کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>خطاهای مناسب نمایش داده می‌شوند (شماره نامعتبر، OTP اشتباه)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Create Project Flow */}
+                <div className="border-r-4 border-purple-500 bg-purple-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-purple-800 mb-3">فلو ایجاد پروژه</h3>
+                  <div className="space-y-2 text-purple-700">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>صفحه /dashboard/customer/projects/create باز می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>فرم ایجاد پروژه نمایش داده می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>Validation فیلدهای الزامی کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>انتخاب دسته‌بندی و زیردسته کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>ثبت پروژه و توزیع به تولیدکنندگان انجام می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>هدایت به لیست پروژه‌ها پس از ثبت موفق انجام می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>خطاهای مناسب نمایش داده می‌شوند</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Messaging Flow */}
+                <div className="border-r-4 border-orange-500 bg-orange-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-orange-800 mb-3">فلو پیام‌رسانی Real-Time</h3>
+                  <div className="space-y-2 text-orange-700">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>صفحه /messaging باز می‌شود و لیست مکالمات نمایش داده می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>اتصال WebSocket برقرار می‌شود</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>ایجاد مکالمه جدید کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>ارسال پیام Real-Time کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>دریافت پیام Real-Time کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>اتصال مجدد WebSocket در صورت قطع شدن کار می‌کند</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="w-4 h-4" />
+                      <span>نمایش وضعیت آنلاین/آفلاین کاربران کار می‌کند</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Important Notes */}
+            <div className="bg-yellow-50 border-r-4 border-yellow-500 rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-yellow-800 mb-4 font-display">
+                نکات مهم برای بررسی
+              </h2>
+              <div className="space-y-3 text-yellow-700">
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p>تمام صفحات باید با احراز هویت مناسب محافظت شوند</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p>صفحات داشبورد باید بر اساس نقش کاربر (CUSTOMER, SUPPLIER, ADMIN) دسترسی داشته باشند</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p>تمام فرم‌ها باید Validation مناسب داشته باشند</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p>خطاها باید به صورت واضح و کاربرپسند نمایش داده شوند</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p>Loading states باید برای تمام عملیات async نمایش داده شوند</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p>صفحات باید responsive باشند و در موبایل به درستی نمایش داده شوند</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p>تمام لینک‌ها باید به صفحات صحیح هدایت کنند</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <p>WebSocket باید در تمام صفحات پیام‌رسانی به درستی کار کند</p>
+                </div>
               </div>
             </div>
           </div>

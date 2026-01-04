@@ -35,11 +35,18 @@ export class Message {
   @Column({ type: 'text' })
   content: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, any> | null;
+
   @Column({ name: 'is_read', default: false })
   isRead: boolean;
 
   @Column({ name: 'read_at', type: 'timestamp', nullable: true })
   readAt: Date | null;
+
+  @Column({ name: 'delivered_at', type: 'timestamp', nullable: true })
+  @Index()
+  deliveredAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

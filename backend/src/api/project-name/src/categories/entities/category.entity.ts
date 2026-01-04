@@ -51,6 +51,10 @@ export class Category {
   @Column({ type: 'integer', default: 1 })
   level: number;
 
+  @Column({ type: 'integer', default: 0 })
+  @Index()
+  order: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

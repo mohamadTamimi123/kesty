@@ -24,13 +24,19 @@ export class Review {
   @JoinColumn({ name: 'portfolio_id' })
   portfolio: Portfolio;
 
-  @Column({ name: 'customer_id', type: 'uuid' })
+  @Column({ name: 'customer_id', type: 'uuid', nullable: true })
   @Index()
-  customerId: string;
+  customerId: string | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'customer_id' })
-  customer: User;
+  customer: User | null;
+
+  @Column({ name: 'customer_name', type: 'varchar', length: 255, nullable: true })
+  customerName: string | null;
+
+  @Column({ name: 'customer_email', type: 'varchar', length: 255, nullable: true })
+  customerEmail: string | null;
 
   @Column({ name: 'supplier_id', type: 'uuid' })
   @Index()

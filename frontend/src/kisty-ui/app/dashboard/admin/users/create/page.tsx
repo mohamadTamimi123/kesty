@@ -12,6 +12,7 @@ import { CreateUserData, UserRole } from "../../../../types/user";
 import apiClient from "../../../../lib/api";
 import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../../utils/logger";
 
 export default function CreateUserPage() {
   const router = useRouter();
@@ -103,8 +104,8 @@ export default function CreateUserPage() {
 
       toast.success(`کاربر ${formData.name} با موفقیت ایجاد شد`);
       router.push("/dashboard/admin/users");
-    } catch (error: any) {
-      console.error("Error creating user:", error);
+    } catch (error: unknown) {
+      logger.error("Error creating user", error);
       toast.error(error.response?.data?.message || "خطا در ایجاد کاربر");
       setIsLoading(false);
     }

@@ -9,6 +9,7 @@ import { City } from "../types/city";
 import { Machine } from "../types/machine";
 import apiClient from "../lib/api";
 import toast from "react-hot-toast";
+import logger from "../utils/logger";
 
 export default function MachineryMarketPage() {
   const [listings, setListings] = useState<MachineListing[]>([]);
@@ -33,8 +34,8 @@ export default function MachineryMarketPage() {
         setCategories(categoriesData);
         setCities(citiesData);
         setMachines(machinesData);
-      } catch (error: any) {
-        console.error("Error fetching data:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching data", error);
         toast.error("خطا در دریافت اطلاعات");
       } finally {
         setIsLoading(false);

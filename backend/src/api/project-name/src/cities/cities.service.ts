@@ -3,14 +3,33 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { City } from './entities/city.entity';
 import { CitySupplier } from './entities/city-supplier.entity';
+import { User, UserRole } from '../users/entities/user.entity';
+import { Project } from '../projects/entities/project.entity';
+import { SupplierRating } from '../rating/entities/supplier-rating.entity';
+import { CategorySupplier } from '../categories/entities/category-supplier.entity';
+import { Category } from '../categories/entities/category.entity';
+import { CacheService } from '../common/services/cache.service';
 
 @Injectable()
 export class CitiesService {
+  private readonly CACHE_TTL = 3600; // 1 hour
+
   constructor(
     @InjectRepository(City)
     private citiesRepository: Repository<City>,
     @InjectRepository(CitySupplier)
     private citySupplierRepository: Repository<CitySupplier>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(Project)
+    private projectRepository: Repository<Project>,
+    @InjectRepository(SupplierRating)
+    private ratingRepository: Repository<SupplierRating>,
+    @InjectRepository(CategorySupplier)
+    private categorySupplierRepository: Repository<CategorySupplier>,
+    @InjectRepository(Category)
+    private categoryRepository: Repository<Category>,
+    private cacheService: CacheService,
   ) {}
 
   /**
@@ -54,10 +73,17 @@ export class CitiesService {
   }
 
   async findActive(): Promise<City[]> {
-    return this.citiesRepository.find({
-      where: { isActive: true },
-      order: { createdAt: 'DESC' },
-    });
+    const cacheKey = 'cities:active';
+    return this.cacheService.getOrSet(
+      cacheKey,
+      async () => {
+        return this.citiesRepository.find({
+          where: { isActive: true },
+          order: { createdAt: 'DESC' },
+        });
+      },
+      this.CACHE_TTL,
+    );
   }
 
   async findById(id: string): Promise<City | null> {
@@ -97,6 +123,9 @@ export class CitiesService {
       isActive: true,
     });
 
+    // Invalidate cache after creation
+    await this.cacheService.invalidate('cities:*');
+
     return await this.citiesRepository.save(city);
   }
 
@@ -105,6 +134,9 @@ export class CitiesService {
     if (!city) {
       throw new NotFoundException(`شهر با شناسه ${id} یافت نشد`);
     }
+
+    // Invalidate cache before update
+    await this.cacheService.invalidate('cities:*');
 
     // Handle slug update
     if (updateData.slug) {
@@ -137,6 +169,9 @@ export class CitiesService {
     if (result.affected === 0) {
       throw new NotFoundException(`شهر با شناسه ${id} یافت نشد`);
     }
+
+    // Invalidate cache after deletion
+    await this.cacheService.invalidate('cities:*');
   }
 
   /**
@@ -196,6 +231,249 @@ export class CitiesService {
       where: { cityId },
     });
     return citySuppliers.map((cs) => cs.supplierId);
+  }
+
+  /**
+   * Get city statistics
+   */
+  async getCityStats(slug: string): Promise<{ workshops: number; projects: number }> {
+    const city = await this.findBySlug(slug);
+    if (!city) {
+      throw new NotFoundException('شهر یافت نشد');
+    }
+
+    const supplierIds = await this.getSuppliersForCity(city.id);
+    const workshops = supplierIds.length;
+
+    const projects = await this.projectRepository.count({
+      where: { cityId: city.id },
+    });
+
+    return { workshops, projects };
+  }
+
+  /**
+   * Get top suppliers in a city by rating
+   */
+  async getTopSuppliers(slug: string, limit: number = 5): Promise<User[]> {
+    const city = await this.findBySlug(slug);
+    if (!city) {
+      throw new NotFoundException('شهر یافت نشد');
+    }
+
+    const supplierIds = await this.getSuppliersForCity(city.id);
+    if (supplierIds.length === 0) {
+      return [];
+    }
+
+    const ratings = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .where('rating.supplierId IN (:...ids)', { ids: supplierIds })
+      .orderBy('rating.totalScore', 'DESC')
+      .take(limit)
+      .getMany();
+
+    const topSupplierIds = ratings.map((r) => r.supplierId);
+    if (topSupplierIds.length === 0) {
+      return [];
+    }
+
+    const suppliers = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id IN (:...ids)', { ids: topSupplierIds })
+      .andWhere('user.role = :role', { role: UserRole.SUPPLIER })
+      .andWhere('user.isActive = :isActive', { isActive: true })
+      .getMany();
+
+    // Sort by rating order
+    return topSupplierIds
+      .map((id) => suppliers.find((s) => s.id === id))
+      .filter((s): s is User => s !== undefined);
+  }
+
+  /**
+   * Get latest registered suppliers in a city
+   */
+  async getLatestSuppliers(slug: string, limit: number = 5): Promise<User[]> {
+    const city = await this.findBySlug(slug);
+    if (!city) {
+      throw new NotFoundException('شهر یافت نشد');
+    }
+
+    const supplierIds = await this.getSuppliersForCity(city.id);
+    if (supplierIds.length === 0) {
+      return [];
+    }
+
+    const suppliers = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id IN (:...ids)', { ids: supplierIds })
+      .andWhere('user.role = :role', { role: UserRole.SUPPLIER })
+      .andWhere('user.isActive = :isActive', { isActive: true })
+      .orderBy('user.createdAt', 'DESC')
+      .take(limit)
+      .getMany();
+
+    return suppliers;
+  }
+
+  /**
+   * Get categories available in a city
+   */
+  async getCityCategories(slug: string): Promise<Category[]> {
+    const city = await this.findBySlug(slug);
+    if (!city) {
+      throw new NotFoundException('شهر یافت نشد');
+    }
+
+    const supplierIds = await this.getSuppliersForCity(city.id);
+    if (supplierIds.length === 0) {
+      return [];
+    }
+
+    const categorySuppliers = await this.categorySupplierRepository
+      .createQueryBuilder('cs')
+      .where('cs.supplierId IN (:...ids)', { ids: supplierIds })
+      .leftJoinAndSelect('cs.category', 'category')
+      .getMany();
+
+    const categoryIds = [...new Set(categorySuppliers.map((cs) => cs.categoryId))];
+    if (categoryIds.length === 0) {
+      return [];
+    }
+
+    const categories = await this.categoryRepository
+      .createQueryBuilder('category')
+      .where('category.id IN (:...ids)', { ids: categoryIds })
+      .andWhere('category.isActive = :isActive', { isActive: true })
+      .orderBy('category.order', 'ASC')
+      .getMany();
+
+    return categories;
+  }
+
+  /**
+   * Get suppliers filtered by city and category with optional filters
+   */
+  async getCityCategorySuppliers(
+    citySlug: string,
+    categorySlug: string,
+    filters?: {
+      subcategory?: string;
+      minRating?: number;
+      equipment?: string[];
+      establishedYear?: number;
+    },
+  ): Promise<User[]> {
+    const city = await this.findBySlug(citySlug);
+    if (!city) {
+      throw new NotFoundException('شهر یافت نشد');
+    }
+
+    // Get category
+    const category = await this.categoryRepository.findOne({
+      where: { slug: categorySlug, isActive: true },
+    });
+    if (!category) {
+      throw new NotFoundException('کتگوری یافت نشد');
+    }
+
+    // Get suppliers in city
+    const citySupplierIds = await this.getSuppliersForCity(city.id);
+    if (citySupplierIds.length === 0) {
+      return [];
+    }
+
+    // Get suppliers in category
+    const categorySuppliers = await this.categorySupplierRepository.find({
+      where: { categoryId: category.id },
+    });
+    const categorySupplierIds = categorySuppliers.map((cs) => cs.supplierId);
+
+    // Intersection: suppliers in both city and category
+    const supplierIds = citySupplierIds.filter((id) => categorySupplierIds.includes(id));
+    if (supplierIds.length === 0) {
+      return [];
+    }
+
+    // Build query with filters
+    let query = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id IN (:...ids)', { ids: supplierIds })
+      .andWhere('user.role = :role', { role: UserRole.SUPPLIER })
+      .andWhere('user.isActive = :isActive', { isActive: true });
+
+    // Apply rating filter
+    if (filters?.minRating) {
+      const ratings = await this.ratingRepository
+        .createQueryBuilder('rating')
+        .where('rating.supplierId IN (:...ids)', { ids: supplierIds })
+        .andWhere('rating.totalScore >= :minRating', { minRating: filters.minRating })
+        .getMany();
+      const ratedSupplierIds = ratings.map((r) => r.supplierId);
+      query = query.andWhere('user.id IN (:...ratedIds)', { ratedIds: ratedSupplierIds });
+    }
+
+    // Apply establishment year filter (if user entity has this field)
+    // This is a placeholder - adjust based on actual User entity structure
+
+    const suppliers = await query.getMany();
+
+    // Apply subcategory filter if needed
+    if (filters?.subcategory) {
+      const subcategory = await this.categoryRepository.findOne({
+        where: { slug: filters.subcategory, isActive: true },
+      });
+      if (subcategory) {
+        const subcategorySuppliers = await this.categorySupplierRepository.find({
+          where: { categoryId: subcategory.id },
+        });
+        const subcategorySupplierIds = subcategorySuppliers.map((cs) => cs.supplierId);
+        return suppliers.filter((s) => subcategorySupplierIds.includes(s.id));
+      }
+    }
+
+    return suppliers;
+  }
+
+  /**
+   * Get combined stats for city and category
+   */
+  async getCityCategoryStats(
+    citySlug: string,
+    categorySlug: string,
+  ): Promise<{ workshops: number; projects: number }> {
+    const city = await this.findBySlug(citySlug);
+    if (!city) {
+      throw new NotFoundException('شهر یافت نشد');
+    }
+
+    const category = await this.categoryRepository.findOne({
+      where: { slug: categorySlug, isActive: true },
+    });
+    if (!category) {
+      throw new NotFoundException('کتگوری یافت نشد');
+    }
+
+    // Get suppliers in city
+    const citySupplierIds = await this.getSuppliersForCity(city.id);
+
+    // Get suppliers in category
+    const categorySuppliers = await this.categorySupplierRepository.find({
+      where: { categoryId: category.id },
+    });
+    const categorySupplierIds = categorySuppliers.map((cs) => cs.supplierId);
+
+    // Intersection: suppliers in both city and category
+    const supplierIds = citySupplierIds.filter((id) => categorySupplierIds.includes(id));
+    const workshops = supplierIds.length;
+
+    // Count projects (simplified - would need proper Project-Category relationship)
+    const projects = await this.projectRepository.count({
+      where: { cityId: city.id },
+    });
+
+    return { workshops, projects };
   }
 }
 

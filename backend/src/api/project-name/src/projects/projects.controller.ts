@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -23,8 +24,12 @@ import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { RateLimitInterceptor } from '../common/interceptors/rate-limit.interceptor';
 
 // Type definition for multer file
 interface MulterFile {
@@ -41,6 +46,7 @@ interface MulterFile {
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
+@UseInterceptors(RateLimitInterceptor)
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
@@ -119,14 +125,71 @@ export class ProjectsController {
 
   @Get('my')
   @HttpCode(HttpStatus.OK)
-  async getMyProjects(@CurrentUser() user: User) {
-    return this.projectsService.findByCustomer(user.id);
+  async getMyProjects(
+    @CurrentUser() user: User,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.projectsService.findByCustomer(
+      user.id,
+      pagination.page || 1,
+      pagination.limit || 10,
+    );
   }
 
   @Get('public')
   @HttpCode(HttpStatus.OK)
-  async getPublicProjects() {
-    return this.projectsService.findPublic();
+  async getPublicProjects(@Query() pagination: PaginationDto) {
+    return this.projectsService.findPublic(
+      pagination.page || 1,
+      pagination.limit || 10,
+    );
+  }
+
+  @Get('all')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getAllProjects(@Query() pagination: PaginationDto) {
+    return this.projectsService.findAll(
+      pagination.page || 1,
+      pagination.limit || 100,
+    );
+  }
+
+  @Post('batch')
+  @HttpCode(HttpStatus.OK)
+  async getProjectsBatch(@Body() body: { ids: string[] }) {
+    if (!body.ids || !Array.isArray(body.ids)) {
+      throw new NotFoundException('لیست شناسه‌های پروژه معتبر نیست');
+    }
+    const projects = await this.projectsService.findByIds(body.ids);
+    return projects;
+  }
+
+  @Get('relevant-for-supplier')
+  @HttpCode(HttpStatus.OK)
+  async getRelevantProjectsForSupplier(
+    @Query('categoryIds') categoryIds?: string,
+    @Query('cityIds') cityIds?: string,
+    @Query('subCategoryIds') subCategoryIds?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const categoryIdsArray = categoryIds ? categoryIds.split(',').filter(Boolean) : [];
+    const cityIdsArray = cityIds ? cityIds.split(',').filter(Boolean) : [];
+    const subCategoryIdsArray = subCategoryIds ? subCategoryIds.split(',').filter(Boolean) : [];
+    const limitNum = limit ? Math.min(parseInt(limit, 10), 50) : 10; // Default 10, max 50
+    const pageNum = page ? parseInt(page, 10) : 1;
+
+    return this.projectsService.findRelevantForSupplier(
+      categoryIdsArray,
+      cityIdsArray,
+      subCategoryIdsArray,
+      limitNum,
+      pageNum,
+      cursor,
+    );
   }
 
   @Get(':id')

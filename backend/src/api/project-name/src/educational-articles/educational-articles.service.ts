@@ -72,8 +72,39 @@ export class EducationalArticlesService {
   }
 
   async create(createDto: CreateEducationalArticleDto): Promise<EducationalArticle> {
+    // Generate slug if not provided or empty
+    let slug = createDto.slug;
+    if (!slug || (typeof slug === 'string' && slug.trim() === '')) {
+      // Generate slug from title
+      slug = createDto.title
+        .toLowerCase()
+        .trim()
+        .replace(/[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFFa-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      
+      // Ensure uniqueness
+      let uniqueSlug = slug;
+      let counter = 1;
+      while (await this.articlesRepository.findOne({ where: { slug: uniqueSlug } })) {
+        uniqueSlug = `${slug}-${counter}`;
+        counter++;
+      }
+      slug = uniqueSlug;
+    } else {
+      // Ensure slug is trimmed
+      slug = slug.trim();
+    }
+
+    // Ensure slug is never null or empty
+    if (!slug || slug === '') {
+      throw new Error('Slug cannot be empty');
+    }
+
     const article = this.articlesRepository.create({
       ...createDto,
+      slug,
       isPublished: createDto.isPublished || false,
       publishedAt: createDto.isPublished ? new Date() : null,
     });

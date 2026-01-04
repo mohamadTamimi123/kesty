@@ -10,6 +10,9 @@ import { CreateProjectData } from "../../../../types/project";
 import apiClient from "../../../../lib/api";
 import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../../utils/logger";
+import { getErrorMessage } from "../../../../utils/errorHandler";
+import Breadcrumb from "../../../../components/Breadcrumb";
 
 export default function CreateProjectPage() {
   const router = useRouter();
@@ -24,31 +27,58 @@ export default function CreateProjectPage() {
   const handleSubmit = async (data: CreateProjectData) => {
     try {
       setIsLoading(true);
-      await apiClient.createProject({
+      const createdProject = await apiClient.createProject({
         ...data,
         quantityEstimate: data.quantityEstimate,
       });
+      
       toast.success("پروژه با موفقیت ثبت شد");
-      router.push("/dashboard/customer/projects");
-    } catch (error: any) {
-      console.error("Error creating project:", error);
-      toast.error(error.response?.data?.message || "خطا در ثبت پروژه");
+      
+      // Set refresh flag
+      localStorage.setItem("refreshProjects", Date.now().toString());
+      
+      // Check suppliers in background (non-blocking)
+      apiClient.getRelevantSuppliers(createdProject.id)
+        .then((relevantSuppliers) => {
+          if (relevantSuppliers.suppliers && relevantSuppliers.suppliers.length > 0) {
+            toast.success(
+              `پروژه به ${relevantSuppliers.count} تولیدکننده مرتبط ارسال شد`,
+              { duration: 4000 }
+            );
+          }
+        })
+        .catch((distError) => {
+          logger.error("Error checking project distribution", distError);
+          // Silent fail - don't show error to user
+        });
+      
+      // Reset loading state before redirect to prevent stuck loading
+      setIsLoading(false);
+      
+      // Use setTimeout to ensure state update is processed before redirect
+      setTimeout(() => {
+        router.push(`/dashboard/customer/projects/${createdProject.id}`);
+      }, 100);
+    } catch (error: unknown) {
+      logger.error("Error creating project", error);
+      const errorMessage = getErrorMessage(error);
+      toast.error(errorMessage || "خطا در ثبت پروژه. لطفاً دوباره تلاش کنید.");
       setIsLoading(false);
     }
   };
 
   return (
     <MobileLayout showBottomNav={false}>
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="">
         {/* Header */}
         <div className="mb-6">
-          <Link
-            href="/dashboard/customer/projects"
-            className="inline-flex items-center text-sm text-brand-medium-blue hover:text-brand-dark-blue mb-4"
-          >
-            <ArrowRightIcon className="w-4 h-4 ml-1" />
-            بازگشت به لیست پروژه‌ها
-          </Link>
+          <Breadcrumb
+            items={[
+              { label: "داشبورد", href: "/dashboard/customer" },
+              { label: "پروژه‌ها", href: "/dashboard/customer/projects" },
+              { label: "ثبت پروژه جدید" },
+            ]}
+          />
           <h1 className="text-2xl font-bold text-brand-dark-blue font-display mb-2">
             ثبت درخواست پروژه
           </h1>

@@ -56,6 +56,10 @@ export class User {
   @Column({ name: 'last_login_ip', type: 'varchar', nullable: true, length: 45 })
   lastLoginIp: string | null;
 
+  @Column({ name: 'last_seen_at', type: 'timestamp', nullable: true })
+  @Index()
+  lastSeenAt: Date | null;
+
   @Column({ name: 'login_count', type: 'int', default: 0 })
   loginCount: number;
 

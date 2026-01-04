@@ -29,6 +29,9 @@ export enum QuantityEstimate {
 }
 
 @Entity('projects')
+@Index(['status', 'isPublic', 'createdAt'])
+@Index(['isPublic', 'categoryId', 'cityId', 'status'])
+@Index(['customerId', 'status'])
 export class Project {
   @PrimaryGeneratedColumn('uuid')
   id: string;

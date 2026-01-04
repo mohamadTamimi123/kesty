@@ -7,7 +7,11 @@ import Input from "./Input";
 import { CreateProjectData, QuantityEstimate } from "../types/project";
 import { City } from "../types/city";
 import { Category } from "../types/category";
+import { Machine } from "../types/machine";
 import apiClient from "../lib/api";
+import logger from "../utils/logger";
+import { getErrorMessage } from "../utils/errorHandler";
+import LoadingSpinner from "./LoadingSpinner";
 
 interface ProjectFormProps {
   onSubmit: (data: CreateProjectData) => Promise<void>;
@@ -21,12 +25,18 @@ export default function ProjectForm({ onSubmit, isLoading = false, initialData }
     description: initialData?.description || "",
     cityId: initialData?.cityId || "",
     categoryId: initialData?.categoryId || "",
+    subCategoryId: initialData?.subCategoryId,
+    machineId: initialData?.machineId,
     quantityEstimate: initialData?.quantityEstimate,
     isPublic: initialData?.isPublic !== undefined ? initialData.isPublic : true,
     files: [],
   });
   const [cities, setCities] = useState<City[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subCategories, setSubCategories] = useState<Category[]>([]);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [isLoadingSubCategories, setIsLoadingSubCategories] = useState(false);
+  const [isLoadingMachines, setIsLoadingMachines] = useState(false);
   const [filePreviews, setFilePreviews] = useState<{ file: File; preview: string }[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof CreateProjectData, string>>>({});
 
@@ -38,16 +48,80 @@ export default function ProjectForm({ onSubmit, isLoading = false, initialData }
           apiClient.getActiveCategories(),
         ]);
         setCities(citiesData);
-        setCategories(categoriesData);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+        // Only show main categories (without parentId) in the main category select
+        setCategories(categoriesData.filter((cat: Category) => !cat.parentId));
+      } catch (error: unknown) {
+        logger.error("Error fetching data", error);
+        // Silently fail - form can still be used
       }
     };
     fetchData();
   }, []);
 
+  // Load subcategories when category is selected
+  useEffect(() => {
+    if (formData.categoryId) {
+      setIsLoadingSubCategories(true);
+      const fetchSubCategories = async () => {
+        try {
+          const allCategories = await apiClient.getActiveCategories();
+          // Filter subcategories that have the selected category as parent
+          const subs = allCategories.filter(
+            (cat: Category) => cat.parentId === formData.categoryId
+          );
+          setSubCategories(subs);
+          // Reset subCategoryId if it's not in the new list
+          if (formData.subCategoryId && !subs.find((cat: Category) => cat.id === formData.subCategoryId)) {
+            setFormData((prev) => ({ ...prev, subCategoryId: undefined }));
+          }
+        } catch (error: unknown) {
+          logger.error("Error fetching subcategories", error);
+        } finally {
+          setIsLoadingSubCategories(false);
+        }
+      };
+      fetchSubCategories();
+    } else {
+      setSubCategories([]);
+      setFormData((prev) => ({ ...prev, subCategoryId: undefined }));
+    }
+  }, [formData.categoryId]);
+
+  // Load machines when category is selected
+  useEffect(() => {
+    if (formData.categoryId) {
+      setIsLoadingMachines(true);
+      const fetchMachines = async () => {
+        try {
+          const machinesData = await apiClient.getMachines(formData.categoryId);
+          setMachines(machinesData);
+          // Reset machineId if it's not in the new list
+          if (formData.machineId && !machinesData.find((m: Machine) => m.id === formData.machineId)) {
+            setFormData((prev) => ({ ...prev, machineId: undefined }));
+          }
+        } catch (error: unknown) {
+          logger.error("Error fetching machines", error);
+        } finally {
+          setIsLoadingMachines(false);
+        }
+      };
+      fetchMachines();
+    } else {
+      setMachines([]);
+      setFormData((prev) => ({ ...prev, machineId: undefined }));
+    }
+  }, [formData.categoryId]);
+
   const handleChange = (field: keyof CreateProjectData, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+      // Reset dependent fields when category changes
+      if (field === "categoryId") {
+        newData.subCategoryId = undefined;
+        newData.machineId = undefined;
+      }
+      return newData;
+    });
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
@@ -227,6 +301,73 @@ export default function ProjectForm({ onSubmit, isLoading = false, initialData }
           )}
         </div>
       </div>
+
+      {/* Subcategory and Machine Selection */}
+      {(subCategories.length > 0 || machines.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {subCategories.length > 0 && (
+            <div>
+              <label
+                htmlFor="subCategoryId"
+                className="block text-sm font-medium mb-2 text-brand-dark-blue"
+              >
+                زیردسته‌بندی (اختیاری)
+              </label>
+              <select
+                id="subCategoryId"
+                name="subCategoryId"
+                value={formData.subCategoryId || ""}
+                onChange={(e) => handleChange("subCategoryId", e.target.value || undefined)}
+                disabled={isLoadingSubCategories}
+                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-medium-blue text-brand-dark-blue ${
+                  isLoadingSubCategories ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
+                } border-brand-medium-gray`}
+              >
+                <option value="">انتخاب زیردسته‌بندی</option>
+                {subCategories.map((subCategory) => (
+                  <option key={subCategory.id} value={subCategory.id}>
+                    {subCategory.title}
+                  </option>
+                ))}
+              </select>
+              {isLoadingSubCategories && (
+                <p className="mt-1 text-xs text-brand-medium-blue">در حال بارگذاری...</p>
+              )}
+            </div>
+          )}
+
+          {machines.length > 0 && (
+            <div>
+              <label
+                htmlFor="machineId"
+                className="block text-sm font-medium mb-2 text-brand-dark-blue"
+              >
+                ماشین‌آلات (اختیاری)
+              </label>
+              <select
+                id="machineId"
+                name="machineId"
+                value={formData.machineId || ""}
+                onChange={(e) => handleChange("machineId", e.target.value || undefined)}
+                disabled={isLoadingMachines}
+                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-medium-blue text-brand-dark-blue ${
+                  isLoadingMachines ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
+                } border-brand-medium-gray`}
+              >
+                <option value="">انتخاب ماشین</option>
+                {machines.map((machine) => (
+                  <option key={machine.id} value={machine.id}>
+                    {machine.name}
+                  </option>
+                ))}
+              </select>
+              {isLoadingMachines && (
+                <p className="mt-1 text-xs text-brand-medium-blue">در حال بارگذاری...</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <label

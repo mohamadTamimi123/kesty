@@ -8,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Category } from "../types/category";
 import { City } from "../types/city";
 import apiClient from "../lib/api";
+import logger from "../utils/logger";
 
 interface DrawerProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export default function Drawer({ isOpen, onClose, children }: DrawerProps) {
           setCategories(mainCategories.slice(0, 5));
           setCities(citiesData.slice(0, 15));
         } catch (error) {
-          console.error("Error fetching menu data:", error);
+          logger.error("Error fetching menu data", error);
         }
       };
       fetchData();

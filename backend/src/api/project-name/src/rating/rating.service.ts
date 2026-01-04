@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { SupplierRating } from './entities/supplier-rating.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { Review } from '../reviews/entities/review.entity';
 import { Portfolio } from '../portfolio/entities/portfolio.entity';
+import { MachineSupplier } from '../machines/entities/machine-supplier.entity';
 
 @Injectable()
 export class RatingService {
@@ -17,6 +18,8 @@ export class RatingService {
     private reviewRepository: Repository<Review>,
     @InjectRepository(Portfolio)
     private portfolioRepository: Repository<Portfolio>,
+    @InjectRepository(MachineSupplier)
+    private machineSupplierRepository: Repository<MachineSupplier>,
   ) {}
 
   async getPremiumScore(supplier: User): Promise<number> {
@@ -72,14 +75,27 @@ export class RatingService {
     if (supplier.coverImageUrl) score += 1.5;
 
     // Machine list (12% of 20 = 2.4 points)
-    // This should check actual machines count
-    // For now, assume 0 if not implemented
-    score += 0;
+    const machineCount = await this.machineSupplierRepository.count({
+      where: { supplierId: supplier.id },
+    });
+    if (machineCount >= 5) {
+      score += 2.4;
+    } else {
+      score += (machineCount * 2.4) / 5;
+    }
 
     // Materials (8% of 20 = 1.6 points)
-    // This should check actual materials count
-    // For now, assume 0 if not implemented
-    score += 0;
+    // Note: MaterialSupplier entity may not exist yet, so we'll skip this for now
+    // When MaterialSupplier is implemented, uncomment the following:
+    // const materialCount = await this.materialSupplierRepository.count({
+    //   where: { supplierId: supplier.id },
+    // });
+    // if (materialCount >= 3) {
+    //   score += 1.6;
+    // } else {
+    //   score += (materialCount * 1.6) / 3;
+    // }
+    score += 0; // Placeholder until MaterialSupplier is implemented
 
     // Gallery (40% of 20 = 8 points)
     const portfolios = await this.portfolioRepository.find({
@@ -131,10 +147,19 @@ export class RatingService {
   }
 
   async getActivityScore(supplierId: string): Promise<number> {
+    const supplier = await this.userRepository.findOne({
+      where: { id: supplierId },
+    });
+
+    if (!supplier) {
+      return 0;
+    }
+
+    let activityScore = 0;
+
+    // Check for recent reviews (30% of 10 = 3 points)
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-
-    // Check for recent reviews
     const recentReviews = await this.reviewRepository.count({
       where: {
         supplierId,
@@ -142,16 +167,29 @@ export class RatingService {
       },
     });
 
-    // Check for regular login (this should check User.lastLoginAt)
-    // For now, assume some activity
-    let activityScore = 0;
-
     if (recentReviews > 0) {
-      activityScore += 3; // Recent review activity
+      activityScore += 3;
     }
 
-    // Regular login check (should be implemented with User entity)
-    activityScore += 3; // Assume regular login
+    // Check last login activity (70% of 10 = 7 points)
+    if (supplier.lastLoginAt) {
+      const daysSinceLogin = Math.floor(
+        (Date.now() - new Date(supplier.lastLoginAt).getTime()) / (1000 * 60 * 60 * 24),
+      );
+      
+      if (daysSinceLogin <= 7) {
+        activityScore += 7; // Very active
+      } else if (daysSinceLogin <= 30) {
+        activityScore += 5; // Active
+      } else if (daysSinceLogin <= 90) {
+        activityScore += 3; // Somewhat active
+      } else {
+        activityScore += 1; // Inactive
+      }
+    } else {
+      // No login recorded, assume inactive
+      activityScore += 1;
+    }
 
     return Math.min(activityScore, 10);
   }
@@ -227,24 +265,64 @@ export class RatingService {
       premiumScore + reviewScore + profileScore + responseScore + activityScore - penalties,
     );
 
+    // Try to find existing rating first
     let rating = await this.ratingRepository.findOne({
       where: { supplierId },
     });
 
-    if (!rating) {
-      rating = this.ratingRepository.create({ supplierId });
+    if (rating) {
+      // Update existing rating
+      rating.premiumScore = premiumScore;
+      rating.reviewScore = reviewScore;
+      rating.profileScore = profileScore;
+      rating.responseScore = responseScore;
+      rating.activityScore = activityScore;
+      rating.penalties = penalties;
+      rating.totalScore = totalScore;
+      rating.lastCalculatedAt = new Date();
+
+      return this.ratingRepository.save(rating);
     }
 
-    rating.premiumScore = premiumScore;
-    rating.reviewScore = reviewScore;
-    rating.profileScore = profileScore;
-    rating.responseScore = responseScore;
-    rating.activityScore = activityScore;
-    rating.penalties = penalties;
-    rating.totalScore = totalScore;
-    rating.lastCalculatedAt = new Date();
+    // Create new rating, handle duplicate key error
+    try {
+      rating = this.ratingRepository.create({
+        supplierId,
+        premiumScore,
+        reviewScore,
+        profileScore,
+        responseScore,
+        activityScore,
+        penalties,
+        totalScore,
+        lastCalculatedAt: new Date(),
+      });
 
-    return this.ratingRepository.save(rating);
+      return await this.ratingRepository.save(rating);
+    } catch (error: any) {
+      // If duplicate key error (race condition), fetch and update existing
+      if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        rating = await this.ratingRepository.findOne({
+          where: { supplierId },
+        });
+
+        if (rating) {
+          rating.premiumScore = premiumScore;
+          rating.reviewScore = reviewScore;
+          rating.profileScore = profileScore;
+          rating.responseScore = responseScore;
+          rating.activityScore = activityScore;
+          rating.penalties = penalties;
+          rating.totalScore = totalScore;
+          rating.lastCalculatedAt = new Date();
+
+          return this.ratingRepository.save(rating);
+        }
+      }
+
+      // Re-throw if it's not a duplicate key error
+      throw error;
+    }
   }
 
   async updateSupplierRating(supplierId: string): Promise<SupplierRating> {

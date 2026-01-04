@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { AdminUsersController } from './admin.controller';
-import { SuppliersController } from './users.controller';
+import { SuppliersController, UsersController, CustomersController } from './users.controller';
 import { CategoriesModule } from '../categories/categories.module';
 import { Portfolio } from '../portfolio/entities/portfolio.entity';
 import { Review } from '../reviews/entities/review.entity';
@@ -13,7 +13,7 @@ import { Review } from '../reviews/entities/review.entity';
     TypeOrmModule.forFeature([User, Portfolio, Review]),
     CategoriesModule,
   ],
-  controllers: [AdminUsersController, SuppliersController],
+  controllers: [AdminUsersController, SuppliersController, UsersController, CustomersController],
   providers: [UsersService],
   exports: [UsersService],
 })

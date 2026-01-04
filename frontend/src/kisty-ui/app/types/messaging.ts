@@ -2,6 +2,7 @@ export interface Conversation {
   id: string;
   customerId: string;
   supplierId: string;
+  projectId?: string | null;
   customer: {
     id: string;
     fullName: string;
@@ -13,6 +14,7 @@ export interface Conversation {
     avatarUrl?: string;
   };
   lastMessageAt: string | null;
+  lastMessage?: Message | null;
   customerUnreadCount: number;
   supplierUnreadCount: number;
   createdAt: string;
@@ -29,10 +31,18 @@ export interface Message {
     avatarUrl?: string;
   };
   content: string;
+  metadata?: Record<string, any> | null;
   isRead: boolean;
   readAt: string | null;
+  deliveredAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UserOnlineStatus {
+  userId: string;
+  isOnline: boolean;
+  lastSeenAt: string | null;
 }
 
 export interface CreateMessageData {
@@ -42,5 +52,6 @@ export interface CreateMessageData {
 
 export interface CreateConversationData {
   supplierId: string;
+  projectId?: string;
 }
 

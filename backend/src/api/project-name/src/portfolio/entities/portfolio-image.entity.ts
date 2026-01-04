@@ -24,7 +24,7 @@ export class PortfolioImage {
   @JoinColumn({ name: 'portfolio_id' })
   portfolio: Portfolio;
 
-  @Column({ name: 'image_url', type: 'varchar', length: 500 })
+  @Column({ name: 'image_url', type: 'text' })
   imageUrl: string;
 
   @Column({ type: 'int', default: 0 })

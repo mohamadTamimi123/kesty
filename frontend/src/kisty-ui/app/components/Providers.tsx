@@ -2,15 +2,18 @@
 
 import { ReactNode } from "react";
 import { AuthProvider } from "../contexts/AuthContext";
+import { ErrorProvider } from "../contexts/ErrorContext";
 import RouteLoading from "./RouteLoading";
 import ToastProvider from "./ToastProvider";
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <RouteLoading />
-      <ToastProvider />
-      {children}
+      <ErrorProvider>
+        <RouteLoading />
+        <ToastProvider />
+        {children}
+      </ErrorProvider>
     </AuthProvider>
   );
 }

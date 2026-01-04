@@ -12,6 +12,7 @@ import { UpdateCityData, City } from "../../../../../types/city";
 import apiClient from "../../../../../lib/api";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../../../utils/logger";
 
 // Simple slug generation function
 const generateSlug = (title: string): string => {
@@ -90,8 +91,8 @@ export default function EditCityPage() {
             setLogoPreview(logoUrl);
           }
         }
-      } catch (error: any) {
-        console.error("Error fetching city:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching city", error);
         toast.error(error.response?.data?.message || "خطا در دریافت اطلاعات شهر");
         router.push("/dashboard/admin/cities");
       } finally {
@@ -183,8 +184,8 @@ export default function EditCityPage() {
 
       toast.success(`شهر ${formData.title} با موفقیت به‌روزرسانی شد`);
       router.push("/dashboard/admin/cities");
-    } catch (error: any) {
-      console.error("Error updating city:", error);
+    } catch (error: unknown) {
+      logger.error("Error updating city", error);
       toast.error(error.response?.data?.message || "خطا در به‌روزرسانی شهر");
       setIsLoading(false);
     }

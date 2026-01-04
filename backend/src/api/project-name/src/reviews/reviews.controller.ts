@@ -3,8 +3,10 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -12,6 +14,7 @@ import {
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { CreateReviewRequestDto } from './dto/create-review-request.dto';
+import { ReviewRequestStatus } from './entities/review-request.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -39,6 +42,13 @@ export class ReviewsController {
     return this.reviewsService.getPendingRequests(customer.id);
   }
 
+  @Get('request/:requestId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CUSTOMER)
+  async getReviewRequest(@Param('requestId') requestId: string, @CurrentUser() customer: User) {
+    return this.reviewsService.getReviewRequestById(requestId, customer.id);
+  }
+
   @Get('my-supplier-reviews')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPPLIER)
@@ -50,9 +60,17 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPPLIER)
   async getPendingRequests(@CurrentUser() supplier: User) {
-    // This should return review requests for supplier's portfolios
-    // For now, return empty array
-    return [];
+    return this.reviewsService.getSupplierPendingRequests(supplier.id);
+  }
+
+  @Get('requests')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPPLIER)
+  async getRequests(
+    @CurrentUser() supplier: User,
+    @Query('status') status?: ReviewRequestStatus,
+  ) {
+    return this.reviewsService.getSupplierReviewRequests(supplier.id, status);
   }
 
   @Get('portfolio/:portfolioId')
@@ -85,6 +103,31 @@ export class ReviewsController {
   async rejectRequest(@Param('requestId') requestId: string, @CurrentUser() customer: User) {
     await this.reviewsService.rejectRequest(requestId, customer);
     return { message: 'Review request rejected' };
+  }
+
+  @Delete('request/:requestId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPPLIER)
+  @HttpCode(HttpStatus.OK)
+  async cancelRequest(@Param('requestId') requestId: string, @CurrentUser() supplier: User) {
+    await this.reviewsService.cancelReviewRequest(requestId, supplier.id);
+    return { message: 'Review request cancelled' };
+  }
+
+  // Token-based endpoints (for non-Keesti customers)
+  @Get('token/:token')
+  @HttpCode(HttpStatus.OK)
+  async getReviewRequestByToken(@Param('token') token: string) {
+    return this.reviewsService.getReviewRequestByToken(token);
+  }
+
+  @Post('token/:token')
+  @HttpCode(HttpStatus.CREATED)
+  async createReviewWithToken(
+    @Param('token') token: string,
+    @Body() createReviewDto: CreateReviewDto & { customerName: string; customerEmail?: string },
+  ) {
+    return this.reviewsService.createReviewWithToken(token, createReviewDto);
   }
 }
 

@@ -70,5 +70,23 @@ export class MessagingController {
     const count = await this.messagingService.getUnreadCount(req.user.id);
     return { count };
   }
+
+  @Post('messages/:id/delivered')
+  async markMessageAsDelivered(@Request() req, @Param('id') messageId: string) {
+    await this.messagingService.markMessageAsDelivered(messageId);
+    return { success: true };
+  }
+
+  @Get('user-online-status/:userId')
+  async getUserOnlineStatus(@Request() req, @Param('userId') userId: string) {
+    const status = await this.messagingService.getUserOnlineStatus(userId);
+    return status;
+  }
+
+  @Post('update-last-seen')
+  async updateLastSeen(@Request() req) {
+    await this.messagingService.updateUserLastSeen(req.user.id);
+    return { success: true };
+  }
 }
 

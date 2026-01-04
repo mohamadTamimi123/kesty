@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   UserIcon,
   DevicePhoneMobileIcon,
@@ -15,11 +15,19 @@ import Button from "../../../components/Button";
 import Input from "../../../components/Input";
 import { useAuth } from "../../../contexts/AuthContext";
 import { validatePhone, validateEmail } from "../../../utils/validation";
+import logger from "../../../utils/logger";
+import apiClient from "../../../lib/api";
+import LoadingSpinner from "../../../components/LoadingSpinner";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const customerId = searchParams?.get("customerId");
   const { user, updateUser } = useAuth();
+  const [viewingCustomer, setViewingCustomer] = useState<any>(null);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -33,20 +41,49 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Fetch customer data if customerId is provided
   useEffect(() => {
-    if (user) {
+    if (customerId && customerId !== user?.id) {
+      setIsViewMode(true);
+      setIsLoadingCustomer(true);
+      // Try to get customer profile - use admin endpoint if available
+      // Note: This might require proper permissions
+      apiClient
+        .getUserById(customerId)
+        .then((customerData) => {
+          setViewingCustomer(customerData);
+          setFormData({
+            name: customerData.fullName || customerData.name || "",
+            phone: customerData.phone || "",
+            email: customerData.email || "",
+            address: customerData.address || "",
+            city: customerData.city || "",
+            company: customerData.company || customerData.workshopName || "",
+            birthDate: customerData.birthDate || customerData.dateOfBirth || "",
+            bio: customerData.bio || "",
+          });
+        })
+        .catch((error) => {
+          logger.error("Error fetching customer data", error);
+          router.back();
+        })
+        .finally(() => {
+          setIsLoadingCustomer(false);
+        });
+    } else if (user) {
+      setIsViewMode(false);
       setFormData({
-        name: user.name || "",
+        name: user.name || user.fullName || "",
         phone: user.phone || "",
         email: user.email || "",
-        address: "",
-        city: "",
-        company: "",
-        birthDate: "",
-        bio: "",
+        address: (user as any).address || "",
+        city: (user as any).city || "",
+        company: (user as any).company || (user as any).workshopName || "",
+        birthDate: (user as any).birthDate || (user as any).dateOfBirth || "",
+        bio: (user as any).bio || "",
       });
     }
-  }, [user]);
+  }, [user, customerId, router]);
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -106,22 +143,32 @@ export default function ProfilePage() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (error) {
-      console.error("Error updating profile:", error);
+      logger.error("Error updating profile", error);
       setErrors({ submit: "خطا در به‌روزرسانی اطلاعات" });
     } finally {
       setIsLoading(false);
     }
   };
 
+  if (isLoadingCustomer) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
           <div className="max-w-4xl mx-auto">
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-brand-dark-blue font-display mb-2">
-                تنظیمات پروفایل
+                {isViewMode ? "پروفایل مشتری" : "تنظیمات پروفایل"}
               </h1>
               <p className="text-brand-medium-blue">
-                اطلاعات شخصی و حساب کاربری خود را مدیریت کنید
+                {isViewMode
+                  ? "اطلاعات پروفایل مشتری"
+                  : "اطلاعات شخصی و حساب کاربری خود را مدیریت کنید"}
               </p>
             </div>
 
@@ -161,7 +208,11 @@ export default function ProfilePage() {
               </div>
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-6"
+                style={{ pointerEvents: isViewMode ? "none" : "auto" }}
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Input
                     type="text"
@@ -268,23 +319,36 @@ export default function ProfilePage() {
                   </div>
                 )}
 
-                <div className="flex gap-4 pt-4">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={isLoading}
-                    disabled={isLoading}
-                  >
-                    ذخیره تغییرات
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="neutral"
-                    onClick={() => router.back()}
-                  >
-                    انصراف
-                  </Button>
-                </div>
+                {!isViewMode && (
+                  <div className="flex gap-4 pt-4">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      isLoading={isLoading}
+                      disabled={isLoading}
+                    >
+                      ذخیره تغییرات
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="neutral"
+                      onClick={() => router.back()}
+                    >
+                      انصراف
+                    </Button>
+                  </div>
+                )}
+                {isViewMode && (
+                  <div className="flex gap-4 pt-4">
+                    <Button
+                      type="button"
+                      variant="neutral"
+                      onClick={() => router.back()}
+                    >
+                      بازگشت
+                    </Button>
+                  </div>
+                )}
               </form>
             </div>
           </div>

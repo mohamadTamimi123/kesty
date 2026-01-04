@@ -11,6 +11,7 @@ import { City } from "../../../types/city";
 import apiClient from "../../../lib/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../utils/logger";
 import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 const formatDate = (dateString: string | Date) => {
@@ -54,8 +55,8 @@ export default function CitiesManagementPage() {
         setIsLoading(true);
         const response = await apiClient.getCities();
         setCities(Array.isArray(response) ? response : []);
-      } catch (error: any) {
-        console.error("Error fetching cities:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching cities", error);
         toast.error(error.response?.data?.message || "خطا در دریافت لیست شهرها");
       } finally {
         setIsLoading(false);
@@ -92,8 +93,8 @@ export default function CitiesManagementPage() {
       setCities(cities.filter((c) => c.id !== deleteDialog.city!.id));
       toast.success(`شهر ${deleteDialog.city.title} با موفقیت حذف شد`);
       setDeleteDialog({ isOpen: false, city: null });
-    } catch (error: any) {
-      console.error("Error deleting city:", error);
+    } catch (error: unknown) {
+      logger.error("Error deleting city", error);
       toast.error(error.response?.data?.message || "خطا در حذف شهر");
     }
   };

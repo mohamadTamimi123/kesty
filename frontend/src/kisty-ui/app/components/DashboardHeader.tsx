@@ -3,8 +3,9 @@
 import { useAuth } from "../contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import Breadcrumb, { BreadcrumbItem } from "./Breadcrumb";
-import { ArrowLeftOnRectangleIcon, UserCircleIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftOnRectangleIcon, UserCircleIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 import Button from "./Button";
+import { useChatSafe } from "../hooks/useChatSafe";
 
 interface DashboardHeaderProps {
   title?: string;
@@ -15,6 +16,11 @@ export default function DashboardHeader({ title, breadcrumbItems = [] }: Dashboa
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const chatContext = useChatSafe();
+  const openChatSidebar = chatContext?.openChatSidebar;
+  const openChatModal = chatContext?.openChatModal;
+  const unreadCount = chatContext?.unreadCount || 0;
+  const isChatSidebarOpen = chatContext?.isChatSidebarOpen || false;
 
   const getRoleLabel = (role?: string): string => {
     const normalizedRole = role?.toLowerCase();
@@ -116,8 +122,34 @@ export default function DashboardHeader({ title, breadcrumbItems = [] }: Dashboa
             )}
           </div>
 
-          {/* Right side: User info and Logout */}
-          <div className="flex items-center gap-4">
+          {/* Right side: Chat, User info and Logout */}
+          <div className="flex items-center gap-3">
+            {/* Chat Button */}
+            {(openChatSidebar || openChatModal) && (
+              <button
+                onClick={() => {
+                  if (openChatSidebar) {
+                    openChatSidebar();
+                  } else if (openChatModal) {
+                    openChatModal();
+                  }
+                }}
+                className={`relative p-2 rounded-lg transition-colors ${
+                  isChatSidebarOpen
+                    ? "bg-brand-light-sky text-brand-medium-blue"
+                    : "text-brand-medium-blue hover:bg-brand-off-white"
+                }`}
+                title="پیام‌ها"
+              >
+                <ChatBubbleLeftRightIcon className="w-6 h-6" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
+            
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-brand-light-sky rounded-full flex items-center justify-center">
                 <UserCircleIcon className="w-6 h-6 text-brand-medium-blue" />

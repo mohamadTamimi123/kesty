@@ -15,6 +15,8 @@ import { Message } from './message.entity';
 @Entity('conversations')
 @Index(['customerId'])
 @Index(['supplierId'])
+// Note: Unique constraint is handled via database migration (partial unique indexes)
+// to properly handle nullable projectId field
 export class Conversation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -32,6 +34,10 @@ export class Conversation {
   @ManyToOne(() => User)
   @JoinColumn({ name: 'supplier_id' })
   supplier: User;
+
+  @Column({ name: 'project_id', type: 'uuid', nullable: true })
+  @Index(['projectId'])
+  projectId: string | null;
 
   @Column({ name: 'last_message_at', type: 'timestamp', nullable: true })
   lastMessageAt: Date | null;

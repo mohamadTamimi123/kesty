@@ -9,6 +9,8 @@ import Input from "../components/Input";
 import { validatePhone, validatePassword, validatePasswordMatch } from "../utils/validation";
 import apiClient from "../lib/api";
 import toast from "react-hot-toast";
+import logger from "../utils/logger";
+import { getErrorMessage } from "../utils/errorHandler";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -102,19 +104,29 @@ export default function RegisterPage() {
         );
 
         // Call register endpoint to send OTP
-        await apiClient.register({
+        const response = await apiClient.register({
           phone: formData.phone,
           fullName: formData.fullName,
           password: formData.password,
         });
 
+        // Check if user already exists
+        if (response.isExistingUser) {
+          toast.error("این شماره موبایل قبلاً ثبت نام کرده است. لطفاً از طریق ورود وارد شوید.");
+          setErrors((prev) => ({ 
+            ...prev, 
+            phone: "این شماره موبایل قبلاً ثبت نام کرده است" 
+          }));
+          return;
+        }
+
         toast.success("کد تایید ارسال شد");
         router.push(`/otp?phone=${encodeURIComponent(formData.phone)}`);
-      } catch (err: any) {
-        const errorMessage =
-          err.response?.data?.message || "خطا در ثبت نام";
+      } catch (err: unknown) {
+        const errorMessage = getErrorMessage(err);
+        logger.error("Registration error", err);
         toast.error(errorMessage);
-        if (err.response?.data?.message?.includes("موبایل")) {
+        if (errorMessage.includes("موبایل") || errorMessage.includes("قبلاً ثبت نام")) {
           setErrors((prev) => ({ ...prev, phone: errorMessage }));
         }
       } finally {
@@ -125,7 +137,7 @@ export default function RegisterPage() {
 
   const handleGoogleLogin = () => {
     // Will be implemented with NextAuth
-    console.log("Google login clicked");
+    // Google login functionality coming soon
   };
 
   return (
@@ -276,6 +288,7 @@ export default function RegisterPage() {
                 variant="primary" 
                 className="w-full"
                 disabled={!isFormValid || isLoading}
+                isLoading={isLoading}
               >
                 {isLoading ? "در حال ارسال..." : "ادامه"}
               </Button>

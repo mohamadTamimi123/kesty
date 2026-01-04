@@ -3,15 +3,16 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import MobileLayout from "../../../components/MobileLayout";
 import Button from "../../../components/Button";
 import DeleteConfirmDialog from "../../../components/DeleteConfirmDialog";
+import CategoryTree from "../../../components/CategoryTree";
 import { Category } from "../../../types/category";
 import apiClient from "../../../lib/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import toast from "react-hot-toast";
-import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import logger from "../../../utils/logger";
+import { MagnifyingGlassIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 const formatDate = (dateString: string | Date) => {
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
@@ -52,11 +53,12 @@ export default function CategoriesManagementPage() {
     const fetchCategories = async () => {
       try {
         setIsLoading(true);
-        const response = await apiClient.getCategories();
+        const response = await apiClient.getCategoryTree();
         setCategories(Array.isArray(response) ? response : []);
-      } catch (error: any) {
-        console.error("Error fetching categories:", error);
-        toast.error(error.response?.data?.message || "خطا در دریافت لیست کتگوری‌ها");
+      } catch (error: unknown) {
+        logger.error("Error fetching categories", error);
+        const errorMessage = (error as any)?.response?.data?.message || "خطا در دریافت لیست کتگوری‌ها";
+        toast.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -67,17 +69,35 @@ export default function CategoriesManagementPage() {
     }
   }, [isAuthenticated, currentUser]);
 
-  // Filter categories based on search query
-  const filteredCategories = useMemo(() => {
-    if (!searchQuery) return categories;
+  // Filter categories based on search query (recursive)
+  const filterCategories = (cats: Category[], query: string): Category[] => {
+    if (!query) return cats;
     
-    const query = searchQuery.toLowerCase();
-    return categories.filter(
-      (category) =>
-        category.title.toLowerCase().includes(query) ||
-        category.slug.toLowerCase().includes(query) ||
-        (category.description && category.description.toLowerCase().includes(query))
-    );
+    const lowerQuery = query.toLowerCase();
+    return cats
+      .map((category): Category | null => {
+        const matches =
+          category.title.toLowerCase().includes(lowerQuery) ||
+          category.slug.toLowerCase().includes(lowerQuery) ||
+          (category.description && category.description.toLowerCase().includes(lowerQuery));
+
+        const filteredChildren = category.children
+          ? filterCategories(category.children, query)
+          : [];
+
+        if (matches || filteredChildren.length > 0) {
+          return {
+            ...category,
+            children: filteredChildren.length > 0 ? filteredChildren : category.children,
+          };
+        }
+        return null;
+      })
+      .filter((cat): cat is Category => cat !== null);
+  };
+
+  const filteredCategories = useMemo(() => {
+    return filterCategories(categories, searchQuery);
   }, [categories, searchQuery]);
 
   const handleDelete = (category: Category) => {
@@ -89,13 +109,69 @@ export default function CategoriesManagementPage() {
 
     try {
       await apiClient.deleteCategory(deleteDialog.category.id);
-      setCategories(categories.filter((c) => c.id !== deleteDialog.category!.id));
+      // Remove category from tree recursively
+      const removeFromTree = (cats: Category[]): Category[] => {
+        return cats
+          .filter((c) => c.id !== deleteDialog.category!.id)
+          .map((c) => ({
+            ...c,
+            children: c.children ? removeFromTree(c.children) : undefined,
+          }));
+      };
+      setCategories(removeFromTree(categories));
       toast.success(`کتگوری ${deleteDialog.category.title} با موفقیت حذف شد`);
       setDeleteDialog({ isOpen: false, category: null });
-    } catch (error: any) {
-      console.error("Error deleting category:", error);
-      toast.error(error.response?.data?.message || "خطا در حذف کتگوری");
+      
+      // Refresh tree
+      const response = await apiClient.getCategoryTree();
+      setCategories(Array.isArray(response) ? response : []);
+    } catch (error: unknown) {
+      logger.error("Error deleting category", error);
+      const errorMessage = (error as any)?.response?.data?.message || "خطا در حذف کتگوری";
+      toast.error(errorMessage);
     }
+  };
+
+  const handleReorder = async (categoryIds: string[]) => {
+    try {
+      await apiClient.reorderCategories(categoryIds);
+      // Refresh tree
+      const response = await apiClient.getCategoryTree();
+      setCategories(Array.isArray(response) ? response : []);
+      toast.success("ترتیب دسته‌ها با موفقیت تغییر کرد");
+    } catch (error: unknown) {
+      logger.error("Error reordering categories", error);
+      const errorMessage = (error as any)?.response?.data?.message || "خطا در تغییر ترتیب";
+      toast.error(errorMessage);
+      // Refresh tree on error
+      const response = await apiClient.getCategoryTree();
+      setCategories(Array.isArray(response) ? response : []);
+    }
+  };
+
+  const handleMove = async (
+    categoryId: string,
+    newParentId: string | null,
+    newOrder?: number
+  ) => {
+    try {
+      await apiClient.moveCategory(categoryId, newParentId, newOrder);
+      // Refresh tree
+      const response = await apiClient.getCategoryTree();
+      setCategories(Array.isArray(response) ? response : []);
+      toast.success("دسته با موفقیت منتقل شد");
+    } catch (error: unknown) {
+      logger.error("Error moving category", error);
+      const errorMessage = (error as any)?.response?.data?.message || "خطا در انتقال دسته";
+      toast.error(errorMessage);
+      // Refresh tree on error
+      const response = await apiClient.getCategoryTree();
+      setCategories(Array.isArray(response) ? response : []);
+    }
+  };
+
+  const handleAddSubcategory = (parentId: string) => {
+    router.push(`/dashboard/admin/categories/create?parentId=${parentId}`);
   };
 
   const getStatusBadgeClass = (isActive: boolean) => {
@@ -194,112 +270,22 @@ export default function CategoriesManagementPage() {
           </div>
         </div>
 
-        {/* Categories Table */}
-        <div className="bg-white rounded-lg shadow-md border border-brand-medium-gray overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-brand-light-gray border-b border-brand-medium-gray">
-                <tr>
-                  <th className="px-4 py-3 text-right text-sm font-bold text-brand-dark-blue">
-                    آیکون
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-bold text-brand-dark-blue">
-                    عنوان
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-bold text-brand-dark-blue">
-                    اسلاگ
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-bold text-brand-dark-blue">
-                    وضعیت
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-bold text-brand-dark-blue">
-                    تاریخ ایجاد
-                  </th>
-                  <th className="px-4 py-3 text-center text-sm font-bold text-brand-dark-blue">
-                    عملیات
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCategories.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-brand-medium-blue">
-                      کتگوری یافت نشد
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCategories.map((category) => {
-                    const iconUrl = getIconUrl(category.iconUrl);
-                    return (
-                      <tr
-                        key={category.id}
-                        className="border-b border-brand-medium-gray hover:bg-brand-light-sky transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          {iconUrl ? (
-                            <div className="w-12 h-12 relative rounded-lg overflow-hidden bg-gray-100">
-                              <Image
-                                src={iconUrl}
-                                alt={category.title}
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xs">
-                              بدون آیکون
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-brand-dark-blue font-medium">
-                          {category.title}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-brand-medium-blue font-mono">
-                          {category.slug}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeClass(
-                              category.isActive
-                            )}`}
-                          >
-                            {category.isActive ? "فعال" : "غیرفعال"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-brand-medium-blue">
-                          {formatDate(category.createdAt)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <Link href={`/dashboard/admin/categories/edit/${category.id}`}>
-                              <Button
-                                variant="neutral"
-                                size="sm"
-                                className="p-2"
-                                title="ویرایش"
-                              >
-                                <PencilIcon className="w-4 h-4" />
-                              </Button>
-                            </Link>
-                            <Button
-                              variant="neutral"
-                              size="sm"
-                              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleDelete(category)}
-                              title="حذف"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+        {/* Categories Tree */}
+        <div className="bg-white rounded-lg shadow-md border border-brand-medium-gray p-6">
+          {filteredCategories.length === 0 ? (
+            <div className="text-center py-12 text-brand-medium-blue">
+              کتگوری یافت نشد
+            </div>
+          ) : (
+            <CategoryTree
+              categories={filteredCategories}
+              onReorder={handleReorder}
+              onMove={handleMove}
+              onDelete={handleDelete}
+              onAddSubcategory={handleAddSubcategory}
+              getIconUrl={getIconUrl}
+            />
+          )}
         </div>
 
         {/* Delete Confirmation Dialog */}

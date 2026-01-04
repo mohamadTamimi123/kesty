@@ -9,11 +9,11 @@ module.exports = {
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'development',
-        PORT: 3001,
+        PORT: 5001,
       },
       env_development: {
         NODE_ENV: 'development',
-        PORT: 3001,
+        PORT: 5001,
       },
       error_file: 'logs/err.log',
       out_file: 'logs/out.log',
@@ -21,11 +21,19 @@ module.exports = {
       time: true,
       merge_logs: true,
       autorestart: true,
-      max_memory_restart: '500M',
+      max_memory_restart: '1G',
       watch: false,
       ignore_watch: ['node_modules', 'logs', 'dist'],
       min_uptime: '10s',
       max_restarts: 10,
+      // Log rotation configuration
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      // Rotate logs when they exceed 10MB
+      max_size: '10M',
+      // Keep last 5 log files
+      retain: 5,
+      // Compress rotated logs
+      compress: true,
     },
   ],
 };

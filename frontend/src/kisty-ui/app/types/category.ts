@@ -8,6 +8,9 @@ export interface Category {
   isActive: boolean;
   metaTitle: string | null;
   metaDescription: string | null;
+  order?: number;
+  level?: number;
+  children?: Category[];
   createdAt: string;
   updatedAt: string;
 }
@@ -19,6 +22,8 @@ export interface CreateCategoryData {
   icon?: File;
   metaTitle?: string;
   metaDescription?: string;
+  parentId?: string;
+  order?: number;
 }
 
 export interface UpdateCategoryData {
@@ -29,5 +34,7 @@ export interface UpdateCategoryData {
   icon?: File;
   metaTitle?: string;
   metaDescription?: string;
+  parentId?: string | null;
+  order?: number;
 }
 

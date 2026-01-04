@@ -28,6 +28,7 @@ export interface Project {
   customerId: string;
   cityId: string;
   categoryId: string;
+  subCategoryId?: string | null;
   quantityEstimate: QuantityEstimate | null;
   status: ProjectStatus;
   isPublic: boolean;
@@ -47,6 +48,11 @@ export interface Project {
     title: string;
     slug: string;
   };
+  subCategory?: {
+    id: string;
+    title: string;
+    slug: string;
+  };
   files?: ProjectFile[];
 }
 
@@ -55,6 +61,8 @@ export interface CreateProjectData {
   description: string;
   cityId: string;
   categoryId: string;
+  subCategoryId?: string;
+  machineId?: string;
   quantityEstimate?: QuantityEstimate;
   isPublic?: boolean;
   files?: File[];

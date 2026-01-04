@@ -105,7 +105,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => handlePhoneChange(e.target.value)}
                 validation={validatePhone}
                 error={phoneError}
-                helperText="شماره موبایل ادمین: 09123456789"
+                helperText={`شماره موبایل ادمین: ${ADMIN_CREDENTIALS.phone}`}
                 required
               />
 
@@ -121,7 +121,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => handlePasswordChange(e.target.value)}
                 error={passwordError}
                 showPasswordToggle
-                helperText="رمز عبور ادمین: admin123"
+                helperText={`رمز عبور ادمین: ${ADMIN_CREDENTIALS.password}`}
                 required
               />
 

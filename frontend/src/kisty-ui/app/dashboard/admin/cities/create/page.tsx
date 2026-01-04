@@ -12,6 +12,10 @@ import { CreateCityData } from "../../../../types/city";
 import apiClient from "../../../../lib/api";
 import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../../utils/logger";
+
+
+import { getErrorMessage } from "../../../../utils/errorHandler";
 
 // Simple slug generation function
 const generateSlug = (title: string): string => {
@@ -131,9 +135,9 @@ export default function CreateCityPage() {
 
       toast.success(`شهر ${formData.title} با موفقیت ایجاد شد`);
       router.push("/dashboard/admin/cities");
-    } catch (error: any) {
-      console.error("Error creating city:", error);
-      toast.error(error.response?.data?.message || "خطا در ایجاد شهر");
+    } catch (error: unknown) {
+      logger.error("Error creating city", error);
+      toast.error(getErrorMessage(error) || "خطا در ایجاد شهر");
       setIsLoading(false);
     }
   };

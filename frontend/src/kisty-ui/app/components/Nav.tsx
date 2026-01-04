@@ -8,10 +8,13 @@ import {
   Squares2X2Icon,
   UserIcon,
   ArrowRightOnRectangleIcon,
+  ArrowLeftOnRectangleIcon,
   ChevronDownIcon,
   Bars3Icon,
+  ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../contexts/AuthContext";
+import { useChatSafe } from "../hooks/useChatSafe";
 import Drawer from "./Drawer";
 
 export default function Nav() {
@@ -19,6 +22,11 @@ export default function Nav() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const chatContext = useChatSafe();
+  const openChatSidebar = chatContext?.openChatSidebar;
+  const openChatModal = chatContext?.openChatModal;
+  const unreadCount = chatContext?.unreadCount || 0;
+  const isChatSidebarOpen = chatContext?.isChatSidebarOpen || false;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -42,9 +50,31 @@ export default function Nav() {
     logout();
   };
 
+  const getRoleLabel = (role?: string): string => {
+    const normalizedRole = role?.toLowerCase();
+    if (normalizedRole === "admin") return "مدیر";
+    if (normalizedRole === "supplier") return "تولیدکننده";
+    return "مشتری";
+  };
+
+  const getRoleBadgeColor = (role?: string): string => {
+    const normalizedRole = role?.toLowerCase();
+    if (normalizedRole === "admin") return "bg-red-100 text-red-800 border-red-300";
+    if (normalizedRole === "supplier") return "bg-blue-100 text-blue-800 border-blue-300";
+    return "bg-green-100 text-green-800 border-green-300";
+  };
+
+  const handleChatClick = () => {
+    if (openChatSidebar) {
+      openChatSidebar();
+    } else if (openChatModal) {
+      openChatModal();
+    }
+  };
+
   return (
-    <nav className="w-full border-b border-brand-medium-gray bg-brand-off-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="w-full sticky top-0 z-50 border-b border-brand-medium-gray bg-brand-off-white bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 bg-white">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button */}
@@ -115,63 +145,102 @@ export default function Nav() {
 
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
-              <div className="relative" ref={menuRef}>
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-brand-medium-gray hover:border-brand-medium-blue hover:shadow-md transition-all duration-200 group"
-                >
-                  <div className="w-8 h-8 rounded-full bg-brand-light-sky flex items-center justify-center">
-                    <UserCircleIcon className="w-5 h-5 text-brand-medium-blue" />
-                  </div>
-                  <ChevronDownIcon
-                    className={`w-4 h-4 text-brand-medium-blue transition-transform duration-200 ${
-                      isUserMenuOpen ? "rotate-180" : ""
+              <>
+                {/* Chat Button */}
+                {(openChatSidebar || openChatModal) && (
+                  <button
+                    onClick={handleChatClick}
+                    className={`relative p-2 rounded-lg transition-colors ${
+                      isChatSidebarOpen
+                        ? "bg-brand-light-sky text-brand-medium-blue"
+                        : "text-brand-medium-blue hover:bg-brand-off-white"
                     }`}
-                  />
-                </button>
-
-                {/* Dropdown Menu */}
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-brand-medium-gray py-2 z-50 animate-fade-in">
-                    <div className="px-4 py-3 border-b border-brand-medium-gray">
-                      <p className="text-sm font-semibold text-brand-dark-blue">
-                        {user?.name || "حساب کاربری"}
-                      </p>
-                      <p className="text-xs text-brand-medium-blue mt-1">
-                        {user?.phone || "کاربر"}
-                      </p>
-                    </div>
-
-                    <Link
-                      href={`/dashboard/${user?.role || "customer"}`}
-                      onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-brand-dark-blue hover:bg-brand-light-sky transition-colors"
-                    >
-                      <Squares2X2Icon className="w-5 h-5 text-brand-medium-blue" />
-                      <span>داشبورد</span>
-                    </Link>
-
-                    <Link
-                      href={`/dashboard/${user?.role || "customer"}/profile`}
-                      onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-brand-dark-blue hover:bg-brand-light-sky transition-colors"
-                    >
-                      <UserIcon className="w-5 h-5 text-brand-medium-blue" />
-                      <span>پروفایل</span>
-                    </Link>
-
-                    <div className="border-t border-brand-medium-gray my-1"></div>
-
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                      <span>خروج از حساب</span>
-                    </button>
-                  </div>
+                    title="پیام‌ها"
+                  >
+                    <ChatBubbleLeftRightIcon className="w-6 h-6" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
                 )}
-              </div>
+
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-brand-medium-gray hover:border-brand-medium-blue hover:shadow-md transition-all duration-200 group"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-brand-light-sky flex items-center justify-center">
+                      <UserCircleIcon className="w-5 h-5 text-brand-medium-blue" />
+                    </div>
+                    <div className="hidden sm:block text-right">
+                      <div className="text-sm font-medium text-brand-dark-blue">
+                        {user?.fullName || user?.name || "کاربر"}
+                      </div>
+                      <div className="text-xs text-brand-medium-blue">
+                        {user?.phone || ""}
+                      </div>
+                    </div>
+                    <ChevronDownIcon
+                      className={`w-4 h-4 text-brand-medium-blue transition-transform duration-200 ${
+                        isUserMenuOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-brand-medium-gray py-2 z-50 animate-fade-in">
+                      <div className="px-4 py-3 border-b border-brand-medium-gray">
+                        <p className="text-sm font-semibold text-brand-dark-blue">
+                          {user?.fullName || user?.name || "حساب کاربری"}
+                        </p>
+                        <p className="text-xs text-brand-medium-blue mt-1">
+                          {user?.phone || "کاربر"}
+                        </p>
+                        {user?.role && (
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border mt-2 ${getRoleBadgeColor(
+                              user.role
+                            )}`}
+                          >
+                            {getRoleLabel(user.role)}
+                          </span>
+                        )}
+                      </div>
+
+                      <Link
+                        href={`/dashboard/${user?.role?.toLowerCase() || "customer"}`}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-brand-dark-blue hover:bg-brand-light-sky transition-colors"
+                      >
+                        <Squares2X2Icon className="w-5 h-5 text-brand-medium-blue" />
+                        <span>داشبورد</span>
+                      </Link>
+
+                      <Link
+                        href={`/dashboard/${user?.role?.toLowerCase() || "customer"}/profile`}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-brand-dark-blue hover:bg-brand-light-sky transition-colors"
+                      >
+                        <UserIcon className="w-5 h-5 text-brand-medium-blue" />
+                        <span>پروفایل</span>
+                      </Link>
+
+                      <div className="border-t border-brand-medium-gray my-1"></div>
+
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <ArrowLeftOnRectangleIcon className="w-5 h-5" />
+                        <span>خروج از حساب</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
               <>
                 <Link

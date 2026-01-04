@@ -11,6 +11,7 @@ import { User } from "../../../types/user";
 import apiClient from "../../../lib/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../utils/logger";
 import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 export default function UserManagementPage() {
@@ -69,8 +70,8 @@ export default function UserManagementPage() {
         });
         
         setUsers(transformedUsers);
-      } catch (error: any) {
-        console.error("Error fetching users:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching users", error);
         toast.error(error.response?.data?.message || "خطا در دریافت لیست کاربران");
       } finally {
         setIsLoading(false);
@@ -108,8 +109,8 @@ export default function UserManagementPage() {
       setUsers(users.filter((u) => u.id !== deleteDialog.user!.id));
       toast.success(`کاربر ${deleteDialog.user.name} با موفقیت حذف شد`);
       setDeleteDialog({ isOpen: false, user: null });
-    } catch (error: any) {
-      console.error("Error deleting user:", error);
+    } catch (error: unknown) {
+      logger.error("Error deleting user", error);
       toast.error(error.response?.data?.message || "خطا در حذف کاربر");
     }
   };

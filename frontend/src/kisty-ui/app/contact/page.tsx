@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
+import apiClient from "../lib/api";
+import logger from "../utils/logger";
+import { getErrorMessage } from "../utils/errorHandler";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -14,15 +17,22 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement contact form submission
-    toast.success("پیام شما با موفقیت ارسال شد. به زودی با شما تماس خواهیم گرفت.");
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      subject: "",
-      message: "",
-    });
+    try {
+      const response = await apiClient.submitContact(formData);
+      if (response.success) {
+        toast.success(response.message || "پیام شما با موفقیت ارسال شد. به زودی با شما تماس خواهیم گرفت.");
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          subject: "",
+          message: "",
+        });
+      }
+    } catch (error: unknown) {
+      logger.error("Error submitting contact form", error);
+      toast.error(getErrorMessage(error) || "خطا در ارسال پیام. لطفا دوباره تلاش کنید.");
+    }
   };
 
   const handleChange = (

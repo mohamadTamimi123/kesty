@@ -1,4 +1,4 @@
-import { IsString, IsUUID, MinLength } from 'class-validator';
+import { IsString, IsUUID, MinLength, IsOptional, IsObject } from 'class-validator';
 
 export class CreateMessageDto {
   @IsUUID('4', { message: 'شناسه مکالمه معتبر نیست' })
@@ -7,5 +7,9 @@ export class CreateMessageDto {
   @IsString()
   @MinLength(1, { message: 'متن پیام نمی‌تواند خالی باشد' })
   content: string;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, any>;
 }
 

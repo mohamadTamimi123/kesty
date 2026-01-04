@@ -7,6 +7,9 @@ import Button from "../components/Button";
 import { useAuth } from "../contexts/AuthContext";
 import apiClient from "../lib/api";
 import toast from "react-hot-toast";
+import logger from "../utils/logger";
+import { getErrorMessage } from "../utils/errorHandler";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function OTPPage() {
   const router = useRouter();
@@ -56,7 +59,7 @@ export default function OTPPage() {
             setOtpExpiresIn(response.expiresIn || 0);
           }
         } catch (error) {
-          console.error('Failed to fetch OTP:', error);
+          // Failed to fetch OTP - will use manual entry
         }
       };
 
@@ -191,10 +194,23 @@ export default function OTPPage() {
       }
 
       // Login user with context
+      // Normalize role - handle both uppercase and lowercase from backend
+      const backendRole = response.user.role || "";
+      const normalizedRole = backendRole.toLowerCase() as "customer" | "supplier" | "admin";
+      
+      // If admin login was initiated but backend doesn't return admin role, log warning
+      if (isAdmin && normalizedRole !== "admin") {
+        logger.warn("Admin login detected but backend returned non-admin role", {
+          phone,
+          backendRole,
+          normalizedRole,
+        });
+      }
+      
       const userData = {
         id: response.user.id,
         phone: response.user.phone,
-        role: response.user.role.toLowerCase() as "customer" | "supplier" | "admin",
+        role: normalizedRole,
         fullName: response.user.fullName,
         email: response.user.email,
       };
@@ -204,23 +220,99 @@ export default function OTPPage() {
 
       toast.success("ورود موفقیت‌آمیز بود");
 
-      // Redirect based on redirect parameter or user role
+      // Wait longer to ensure cookie and state are fully set before redirect
+      // This prevents redirect loops and ensures AuthContext has time to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Verify that token and user data are actually set before redirecting
+      const token = localStorage.getItem("accessToken");
+      const storedUser = localStorage.getItem("user");
+      if (!token || !storedUser) {
+        toast.error("خطا در ذخیره اطلاعات ورود. لطفاً دوباره تلاش کنید.");
+        return;
+      }
+
+      // Verify user role matches expected role
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        if (isAdmin && parsedUser.role !== "admin") {
+          logger.warn("Admin login failed: user role mismatch", {
+            expected: "admin",
+            actual: parsedUser.role,
+          });
+          toast.error("شما دسترسی به پنل مدیریت را ندارید");
+          router.push("/dashboard");
+          return;
+        }
+      } catch (error) {
+        logger.error("Error parsing stored user data", error);
+      }
+
+      // Determine target path
+      let targetPath: string;
+      const role = userData.role;
+      
+      // If redirectPath is provided, validate it matches user role
       if (redirectPath) {
-        router.push(redirectPath);
+        // Check if redirect path matches user role
+        const isAdminPath = redirectPath.startsWith("/dashboard/admin");
+        const isSupplierPath = redirectPath.startsWith("/dashboard/supplier");
+        const isCustomerPath = redirectPath.startsWith("/dashboard/customer");
+        
+        // Validate redirect path matches user role
+        if (isAdminPath && role !== "admin") {
+          // User is not admin but trying to access admin path
+          logger.warn("Redirect path mismatch: user is not admin but redirecting to admin path", {
+            role,
+            redirectPath,
+            isAdmin,
+          });
+          // Redirect to appropriate dashboard based on role
+          if (role === "supplier") {
+            targetPath = "/dashboard/supplier";
+          } else {
+            targetPath = "/dashboard/customer";
+          }
+        } else if (isSupplierPath && role !== "supplier") {
+          // User is not supplier but trying to access supplier path
+          if (role === "admin") {
+            targetPath = "/dashboard/admin";
+          } else {
+            targetPath = "/dashboard/customer";
+          }
+        } else if (isCustomerPath && role !== "customer") {
+          // User is not customer but trying to access customer path
+          if (role === "admin") {
+            targetPath = "/dashboard/admin";
+          } else {
+            targetPath = "/dashboard/supplier";
+          }
+        } else {
+          // Redirect path is valid for user role
+          targetPath = redirectPath;
+        }
       } else {
         // Redirect to appropriate dashboard based on user role
-        const role = userData.role;
         if (role === "admin") {
-          router.push("/dashboard/admin");
+          targetPath = "/dashboard/admin";
         } else if (role === "supplier") {
-          router.push("/dashboard/supplier");
+          targetPath = "/dashboard/supplier";
         } else {
-          router.push("/dashboard/customer");
+          targetPath = "/dashboard/customer";
         }
       }
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "کد تایید نامعتبر است";
+      
+      // Use window.location.href for admin redirect to ensure full page reload
+      // This ensures AuthContext state is properly initialized and prevents redirect loops
+      if (role === "admin" && targetPath.startsWith("/dashboard/admin")) {
+        window.location.href = targetPath;
+      } else {
+        // Use router.push for other redirects
+        router.push(targetPath);
+      }
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err);
+      logger.error("OTP verification error", err);
       toast.error(errorMessage);
       // Clear OTP inputs on error
       setOtp(Array(6).fill(""));

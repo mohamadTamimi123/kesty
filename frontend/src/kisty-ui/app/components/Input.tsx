@@ -6,6 +6,7 @@ import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;
   helperText?: string;
+  helpText?: string; // Alias for helperText for backward compatibility
   error?: string;
   icon?: ReactNode;
   iconPosition?: "start" | "end";
@@ -19,6 +20,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     {
       label,
       helperText,
+      helpText, // Alias for helperText
       error,
       icon,
       iconPosition = "start",
@@ -29,10 +31,18 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       className = "",
       onChange,
       value,
-      ...props
+      ...restProps
     },
     ref
   ) => {
+    // Use helpText if helperText is not provided (backward compatibility)
+    const displayHelperText = helperText || helpText;
+    
+    // Extract only valid HTML input props, excluding our custom props
+    const {
+      // Remove any custom props that shouldn't be passed to DOM
+      ...inputProps
+    } = restProps;
     const [showPassword, setShowPassword] = useState(false);
     const [internalError, setInternalError] = useState<string | null>(null);
     const [isFocused, setIsFocused] = useState(false);
@@ -65,26 +75,26 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(false);
-      if (props.onBlur) {
-        props.onBlur(e);
+      if (inputProps.onBlur) {
+        inputProps.onBlur(e);
       }
     };
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(true);
-      if (props.onFocus) {
-        props.onFocus(e);
+      if (inputProps.onFocus) {
+        inputProps.onFocus(e);
       }
     };
 
     const baseInputClasses = `
-      w-full px-4 py-2 
-      border rounded-lg 
+      w-full px-4 py-3 
+      border rounded-xl 
       bg-white 
       text-brand-dark-blue 
       placeholder:text-brand-medium-gray
       transition-all duration-200
-      focus:outline-none
+      focus:outline-none focus:ring-offset-2
       disabled:opacity-50 disabled:cursor-not-allowed
     `;
 
@@ -118,7 +128,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       <div className="w-full">
         {label && (
           <label
-            htmlFor={props.id || props.name}
+            htmlFor={inputProps.id || inputProps.name}
             className="block text-sm font-medium mb-2 text-brand-dark-blue"
           >
             {label}
@@ -143,7 +153,15 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             onBlur={handleBlur}
             onFocus={handleFocus}
             className={`${baseInputClasses} ${stateClasses} ${inputPadding} ${className}`}
-            {...props}
+            aria-invalid={!!displayError}
+            aria-describedby={
+              displayError
+                ? `${inputProps.id || inputProps.name}-error`
+                : displayHelperText
+                ? `${inputProps.id || inputProps.name}-helper`
+                : undefined
+            }
+            {...inputProps}
           />
 
           {/* Password Toggle Icon */}
@@ -192,15 +210,15 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         </div>
 
         {/* Helper Text */}
-        {helperText && !displayError && (
-          <p className="mt-1 text-xs text-brand-medium-blue animate-fade-in">
-            {helperText}
+        {displayHelperText && !displayError && (
+          <p id={`${inputProps.id || inputProps.name}-helper`} className="mt-1 text-xs text-brand-medium-blue animate-fade-in">
+            {displayHelperText}
           </p>
         )}
 
         {/* Error Message */}
         {displayError && (
-          <p className="mt-1 text-xs text-red-500 animate-fade-in flex items-center gap-1">
+          <p id={`${inputProps.id || inputProps.name}-error`} role="alert" className="mt-1 text-xs text-red-500 animate-fade-in flex items-center gap-1">
             <svg
               className="w-4 h-4 flex-shrink-0"
               fill="currentColor"

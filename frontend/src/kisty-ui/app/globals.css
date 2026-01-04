@@ -137,3 +137,231 @@ body {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Article Content Styles */
+.article-content {
+  line-height: 1.8;
+  font-size: 1.1rem;
+}
+
+.article-content h1,
+.article-content h2,
+.article-content h3,
+.article-content h4,
+.article-content h5,
+.article-content h6 {
+  font-weight: bold;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: var(--brand-dark-blue);
+}
+
+.article-content h1 {
+  font-size: 2rem;
+}
+
+.article-content h2 {
+  font-size: 1.75rem;
+}
+
+.article-content h3 {
+  font-size: 1.5rem;
+}
+
+.article-content h4 {
+  font-size: 1.25rem;
+}
+
+.article-content p {
+  margin-bottom: 1.5rem;
+}
+
+.article-content ul,
+.article-content ol {
+  margin-bottom: 1.5rem;
+  padding-right: 2rem;
+}
+
+.article-content li {
+  margin-bottom: 0.5rem;
+}
+
+.article-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 2rem 0;
+}
+
+.article-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2rem 0;
+}
+
+.article-content table th,
+.article-content table td {
+  border: 1px solid var(--brand-medium-gray);
+  padding: 0.75rem;
+  text-align: right;
+}
+
+.article-content table th {
+  background-color: var(--brand-light-sky);
+  font-weight: bold;
+}
+
+.article-content blockquote {
+  border-right: 4px solid var(--brand-medium-blue);
+  padding-right: 1.5rem;
+  margin: 2rem 0;
+  font-style: italic;
+  color: var(--brand-medium-blue);
+}
+
+.article-content a {
+  color: var(--brand-medium-blue);
+  text-decoration: underline;
+}
+
+.article-content a:hover {
+  color: var(--brand-dark-blue);
+}
+
+.article-content code {
+  background-color: var(--brand-off-white);
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.article-content pre {
+  background-color: var(--brand-off-white);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 2rem 0;
+}
+
+.article-content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.article-content iframe {
+  max-width: 100%;
+  margin: 2rem 0;
+  border-radius: 0.5rem;
+}
+
+/* React Quill Editor Styles */
+.quill {
+  direction: rtl;
+}
+
+.ql-container {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  direction: rtl;
+  min-height: 300px;
+}
+
+.ql-editor {
+  min-height: 300px;
+  direction: rtl;
+  text-align: right;
+  padding: 1rem;
+  color: var(--brand-dark-blue);
+}
+
+.ql-editor.ql-blank::before {
+  color: var(--brand-medium-gray);
+  font-style: normal;
+  right: 1rem;
+  left: auto;
+}
+
+.ql-toolbar {
+  border-top: 1px solid var(--brand-medium-gray);
+  border-right: 1px solid var(--brand-medium-gray);
+  border-left: 1px solid var(--brand-medium-gray);
+  border-bottom: none;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--brand-off-white);
+  padding: 0.5rem;
+  direction: rtl;
+}
+
+.ql-container {
+  border-bottom: 1px solid var(--brand-medium-gray);
+  border-right: 1px solid var(--brand-medium-gray);
+  border-left: 1px solid var(--brand-medium-gray);
+  border-top: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: white;
+}
+
+.ql-toolbar .ql-stroke {
+  stroke: var(--brand-dark-blue);
+}
+
+.ql-toolbar .ql-fill {
+  fill: var(--brand-dark-blue);
+}
+
+.ql-toolbar button:hover,
+.ql-toolbar button:focus,
+.ql-toolbar button.ql-active {
+  color: var(--brand-medium-blue);
+}
+
+.ql-toolbar button:hover .ql-stroke,
+.ql-toolbar button:focus .ql-stroke,
+.ql-toolbar button.ql-active .ql-stroke {
+  stroke: var(--brand-medium-blue);
+}
+
+.ql-toolbar button:hover .ql-fill,
+.ql-toolbar button:focus .ql-fill,
+.ql-toolbar button.ql-active .ql-fill {
+  fill: var(--brand-medium-blue);
+}
+
+.ql-snow .ql-picker {
+  color: var(--brand-dark-blue);
+}
+
+.ql-snow .ql-picker-options {
+  background: white;
+  border: 1px solid var(--brand-medium-gray);
+  border-radius: 0.5rem;
+  direction: rtl;
+}
+
+.ql-snow .ql-picker-item:hover {
+  background: var(--brand-light-sky);
+  color: var(--brand-dark-blue);
+}
+
+.ql-snow .ql-tooltip {
+  background: white;
+  border: 1px solid var(--brand-medium-gray);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-brand);
+  direction: rtl;
+}
+
+.ql-snow .ql-tooltip input {
+  border: 1px solid var(--brand-medium-gray);
+  border-radius: 0.25rem;
+  direction: rtl;
+}
+
+.ql-snow .ql-tooltip a {
+  color: var(--brand-medium-blue);
+}
+
+.ql-snow .ql-tooltip a:hover {
+  color: var(--brand-dark-blue);
+}

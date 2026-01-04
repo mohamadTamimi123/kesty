@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import apiClient from "../../../lib/api";
-import { Message, Conversation } from "../../../types/messaging";
+import apiClient from "../../lib/api";
+import { Message, Conversation } from "../../types/messaging";
 import toast from "react-hot-toast";
-import { ArrowLeftIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
-import { useMessagingSocket } from "../../../hooks/useMessagingSocket";
+import logger from "../../utils/logger";
+import { getErrorMessage } from "../../utils/errorHandler";
+import LoadingSpinner from "../../components/LoadingSpinner";
+import { ArrowLeftIcon, PaperAirplaneIcon, WifiIcon, SignalSlashIcon } from "@heroicons/react/24/outline";
+import { useMessagingSocket } from "../../hooks/useMessagingSocket";
 
 export default function ConversationPage() {
   const params = useParams();
@@ -17,8 +20,9 @@ export default function ConversationPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [otherUserOnline, setOtherUserOnline] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { joinConversation, leaveConversation, onNewMessage, onConversationUpdate } = useMessagingSocket();
+  const { joinConversation, leaveConversation, onNewMessage, onConversationUpdate, onUserOnlineStatus, isConnected, reconnectAttempts } = useMessagingSocket();
 
   useEffect(() => {
     if (conversationId) {
@@ -58,11 +62,18 @@ export default function ConversationPage() {
       }
     });
 
+    const unsubscribeUserOnlineStatus = onUserOnlineStatus((data) => {
+      if (conversation && (data.userId === conversation.customerId || data.userId === conversation.supplierId)) {
+        setOtherUserOnline(data.isOnline);
+      }
+    });
+
     return () => {
       if (unsubscribeNewMessage) unsubscribeNewMessage();
       if (unsubscribeConversationUpdate) unsubscribeConversationUpdate();
+      if (unsubscribeUserOnlineStatus) unsubscribeUserOnlineStatus();
     };
-  }, [conversationId, onNewMessage, onConversationUpdate]);
+  }, [conversationId, conversation, onNewMessage, onConversationUpdate, onUserOnlineStatus]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -72,8 +83,8 @@ export default function ConversationPage() {
     try {
       const data = await apiClient.getConversation(conversationId);
       setConversation(data);
-    } catch (error: any) {
-      console.error("Error fetching conversation:", error);
+    } catch (error: unknown) {
+      logger.error("Error fetching conversation", error);
       toast.error("خطا در دریافت مکالمه");
     }
   };
@@ -84,9 +95,9 @@ export default function ConversationPage() {
       const data = await apiClient.getMessages(conversationId);
       setMessages(data.reverse());
       await apiClient.markConversationAsRead(conversationId);
-    } catch (error: any) {
-      console.error("Error fetching messages:", error);
-      toast.error("خطا در دریافت پیام‌ها");
+    } catch (error: unknown) {
+      logger.error("Error fetching messages", error);
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -95,15 +106,21 @@ export default function ConversationPage() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || isSending) return;
 
+    if (!isConnected) {
+      toast.error("اتصال برقرار نیست. لطفاً منتظر بمانید...");
+      return;
+    }
+
     try {
       setIsSending(true);
       const message = await apiClient.sendMessage(conversationId, newMessage.trim());
       setMessages([...messages, message]);
       setNewMessage("");
       await fetchConversation();
-    } catch (error: any) {
-      console.error("Error sending message:", error);
-      toast.error("خطا در ارسال پیام");
+      scrollToBottom();
+    } catch (error: unknown) {
+      logger.error("Error sending message", error);
+      toast.error(getErrorMessage(error));
     } finally {
       setIsSending(false);
     }
@@ -112,7 +129,7 @@ export default function ConversationPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-brand-off-white flex items-center justify-center">
-        <div className="text-brand-medium-blue">در حال بارگذاری...</div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -120,7 +137,10 @@ export default function ConversationPage() {
   if (!conversation) {
     return (
       <div className="min-h-screen bg-brand-off-white flex items-center justify-center">
-        <div className="text-brand-medium-blue">مکالمه یافت نشد</div>
+        <EmptyState
+          title="مکالمه یافت نشد"
+          description="مکالمه مورد نظر شما وجود ندارد یا دسترسی به آن ندارید"
+        />
       </div>
     );
   }
@@ -133,28 +153,60 @@ export default function ConversationPage() {
   return (
     <div className="min-h-screen bg-brand-off-white flex flex-col">
       <div className="bg-white border-b border-brand-medium-gray px-4 py-4">
-        <div className="max-w-4xl mx-auto flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:bg-brand-light-sky rounded-lg"
-          >
-            <ArrowLeftIcon className="w-6 h-6 text-brand-dark-blue" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-light-sky rounded-full flex items-center justify-center">
-              {otherUser.avatarUrl ? (
-                <img
-                  src={otherUser.avatarUrl}
-                  alt={otherUser.fullName}
-                  className="w-10 h-10 rounded-full"
-                />
-              ) : (
-                <span className="text-brand-medium-blue font-semibold">
-                  {otherUser.fullName.charAt(0)}
-                </span>
-              )}
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-brand-light-sky rounded-lg"
+            >
+              <ArrowLeftIcon className="w-6 h-6 text-brand-dark-blue" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-10 h-10 bg-brand-light-sky rounded-full flex items-center justify-center">
+                  {otherUser.avatarUrl ? (
+                    <img
+                      src={otherUser.avatarUrl}
+                      alt={otherUser.fullName}
+                      className="w-10 h-10 rounded-full"
+                    />
+                  ) : (
+                    <span className="text-brand-medium-blue font-semibold">
+                      {otherUser.fullName.charAt(0)}
+                    </span>
+                  )}
+                </div>
+                {/* Online Status Indicator */}
+                {otherUserOnline && (
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                )}
+              </div>
+              <div>
+                <h2 className="font-semibold text-brand-dark-blue">{otherUser.fullName}</h2>
+                {otherUserOnline && (
+                  <p className="text-xs text-green-600 flex items-center gap-1">
+                    <WifiIcon className="w-3 h-3" />
+                    آنلاین
+                  </p>
+                )}
+              </div>
             </div>
-            <h2 className="font-semibold text-brand-dark-blue">{otherUser.fullName}</h2>
+          </div>
+          {/* Connection Status */}
+          <div className="flex items-center gap-2">
+            {isConnected ? (
+              <div className="flex items-center gap-2 text-green-600">
+                <WifiIcon className="w-4 h-4" />
+                <span className="text-xs">اتصال برقرار</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-red-600">
+                <SignalSlashIcon className="w-4 h-4" />
+                <span className="text-xs">
+                  {reconnectAttempts > 0 ? `اتصال مجدد... (${reconnectAttempts})` : 'قطع شده'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -211,8 +263,9 @@ export default function ConversationPage() {
           />
           <button
             onClick={handleSendMessage}
-            disabled={!newMessage.trim() || isSending}
+            disabled={!newMessage.trim() || isSending || !isConnected}
             className="p-3 bg-brand-medium-blue text-white rounded-lg hover:bg-brand-dark-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title={!isConnected ? "اتصال برقرار نیست" : ""}
           >
             <PaperAirplaneIcon className="w-5 h-5" />
           </button>

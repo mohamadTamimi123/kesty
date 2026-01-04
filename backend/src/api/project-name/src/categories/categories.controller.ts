@@ -33,6 +33,13 @@ export class CategoriesController {
     return this.categoriesService.findRootCategories();
   }
 
+  @Get('suppliers/:supplierId')
+  @HttpCode(HttpStatus.OK)
+  async getSupplierCategories(@Param('supplierId') supplierId: string) {
+    const categories = await this.categoriesService.getCategoriesForSupplier(supplierId);
+    return { supplierId, categories };
+  }
+
   @Get(':id/children')
   @HttpCode(HttpStatus.OK)
   async getCategoryChildren(@Param('id') id: string) {
@@ -86,6 +93,36 @@ export class CategoriesController {
       throw new NotFoundException('کتگوری یافت نشد');
     }
     return category;
+  }
+
+  @Get(':slug/stats')
+  @HttpCode(HttpStatus.OK)
+  async getCategoryStats(@Param('slug') slug: string) {
+    return this.categoriesService.getCategoryStats(slug);
+  }
+
+  @Get(':slug/top-suppliers')
+  @HttpCode(HttpStatus.OK)
+  async getCategoryTopSuppliers(@Param('slug') slug: string) {
+    return this.categoriesService.getTopSuppliers(slug, 5);
+  }
+
+  @Get(':slug/cities')
+  @HttpCode(HttpStatus.OK)
+  async getCategoryCities(@Param('slug') slug: string) {
+    return this.categoriesService.getCategoryCities(slug);
+  }
+
+  @Get(':slug/subcategories')
+  @HttpCode(HttpStatus.OK)
+  async getCategorySubcategories(@Param('slug') slug: string) {
+    return this.categoriesService.getSubcategories(slug);
+  }
+
+  @Get(':slug/articles')
+  @HttpCode(HttpStatus.OK)
+  async getCategoryArticles(@Param('slug') slug: string) {
+    return this.categoriesService.getCategoryArticles(slug, 5);
   }
 }
 

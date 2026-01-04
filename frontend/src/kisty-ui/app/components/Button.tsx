@@ -3,7 +3,7 @@
 import { ButtonHTMLAttributes, ReactNode } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "neutral";
+  variant?: "primary" | "secondary" | "neutral" | "danger";
   size?: "sm" | "md" | "lg";
   isLoading?: boolean;
   children: ReactNode;
@@ -24,6 +24,7 @@ export default function Button({
     primary: "bg-brand-medium-blue text-white hover:bg-brand-dark-blue shadow-md hover:shadow-lg hover:scale-105",
     secondary: "border-2 border-brand-medium-blue text-brand-medium-blue hover:bg-brand-light-sky",
     neutral: "bg-brand-light-gray text-brand-dark-blue hover:bg-brand-medium-gray",
+    danger: "bg-red-600 text-white hover:bg-red-700 shadow-md hover:shadow-lg hover:scale-105",
   };
 
   const sizeClasses = {
@@ -36,6 +37,8 @@ export default function Button({
     <button
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       disabled={disabled || isLoading}
+      aria-busy={isLoading}
+      aria-disabled={disabled || isLoading}
       {...props}
     >
       {isLoading && (

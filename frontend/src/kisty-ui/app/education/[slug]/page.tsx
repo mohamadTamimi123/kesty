@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import Breadcrumb, { BreadcrumbItem } from "../../../components/Breadcrumb";
-import { EducationalArticle } from "../../../types/article";
-import apiClient from "../../../lib/api";
+import Breadcrumb, { BreadcrumbItem } from "../../components/Breadcrumb";
+import { EducationalArticle } from "../../types/article";
+import apiClient from "../../lib/api";
 import toast from "react-hot-toast";
+import logger from "../../utils/logger";
 
 export default function ArticlePage() {
   const params = useParams();
@@ -20,8 +21,8 @@ export default function ArticlePage() {
         setIsLoading(true);
         const articleData = await apiClient.getEducationalArticleBySlug(slug);
         setArticle(articleData);
-      } catch (error: any) {
-        console.error("Error fetching article:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching article", error);
         toast.error("خطا در دریافت مقاله");
       } finally {
         setIsLoading(false);

@@ -1,0 +1,58 @@
+
+================================================================================
+📊 LOG ANALYSIS REPORT
+================================================================================
+
+📈 SUMMARY
+--------------------------------------------------------------------------------
+Total Log Entries: 80,005
+Time Range: 2025-12-26T16:49:08 → 2025-12-27T01:03:54
+Error Rate: 0.03%
+Average Response Time: 0ms
+Total Errors: 22
+Total Warnings: 0
+Slow Requests (>1000ms): 0
+
+⚠️  ERROR PEAKS (top 10)
+--------------------------------------------------------------------------------
+  2025-12-27T00:30: 8 errors
+  2025-12-27T00:27: 3 errors
+  2025-12-26T22:34: 2 errors
+  2025-12-27T00:53: 2 errors
+  2025-12-26T22:35: 1 errors
+  2025-12-26T22:37: 1 errors
+  2025-12-26T22:58: 1 errors
+  2025-12-26T22:59: 1 errors
+  2025-12-27T00:28: 1 errors
+  2025-12-27T00:31: 1 errors
+
+❌ RECENT ERRORS (last 20)
+--------------------------------------------------------------------------------
+  [2025-12-27T00:54:25] TypeORM: error: permission denied for language c
+  [2025-12-27T00:53:40] TypeORM: error: permission denied for language c
+  [2025-12-27T00:53:35] TypeORM: error: permission denied for language c
+  [2025-12-27T00:31:11] TypeORM: error: permission denied for language c
+  [2025-12-27T00:30:50] TypeORM: error: relation "IDX_48f2dd2ff22c259c8a028267f7" already exists
+  [2025-12-27T00:30:46] TypeORM: error: relation "IDX_48f2dd2ff22c259c8a028267f7" already exists
+  [2025-12-27T00:30:42] TypeORM: error: relation "IDX_48f2dd2ff22c259c8a028267f7" already exists
+  [2025-12-27T00:30:39] TypeORM: error: relation "IDX_48f2dd2ff22c259c8a028267f7" already exists
+  [2025-12-27T00:30:35] TypeORM: error: relation "IDX_48f2dd2ff22c259c8a028267f7" already exists
+  [2025-12-27T00:30:19] TypeORM: error: relation "IDX_48f2dd2ff22c259c8a028267f7" already exists
+  [2025-12-27T00:30:15] TypeORM: error: relation "IDX_48f2dd2ff22c259c8a028267f7" already exists
+  [2025-12-27T00:30:08] TypeORM: error: permission denied for language c
+  [2025-12-27T00:28:59] TypeORM: error: permission denied for language c
+  [2025-12-27T00:27:59] TypeORM: error: permission denied for language c
+  [2025-12-27T00:27:50] TypeORM: error: permission denied for language c
+  [2025-12-27T00:27:39] TypeORM: error: permission denied for language c
+  [2025-12-26T22:59:07] TypeORM: error: permission denied for language c
+  [2025-12-26T22:58:46] TypeORM: error: permission denied for language c
+  [2025-12-26T22:37:40] TypeORM: error: permission denied for language c
+  [2025-12-26T22:35:42] TypeORM: error: permission denied for language c
+
+💡 RECOMMENDATIONS
+--------------------------------------------------------------------------------
+  ✅ System performance looks good!
+
+================================================================================
+Report generated at: 2025-12-29T10:31:19.698Z
+================================================================================

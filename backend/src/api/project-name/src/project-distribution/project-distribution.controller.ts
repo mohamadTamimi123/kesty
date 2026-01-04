@@ -71,5 +71,24 @@ export class ProjectDistributionController {
       count: suppliers.length,
     };
   }
+
+  @Get(':projectId/excluded-suppliers')
+  @HttpCode(HttpStatus.OK)
+  async getExcludedSuppliers(@Param('projectId') projectId: string) {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('پروژه یافت نشد');
+    }
+
+    const excludedSuppliers = await this.projectDistributionService.getExcludedSuppliers(projectId);
+    return {
+      projectId,
+      excludedSuppliers,
+      count: excludedSuppliers.length,
+    };
+  }
 }
 

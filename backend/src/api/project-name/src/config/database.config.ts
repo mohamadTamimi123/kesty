@@ -21,6 +21,7 @@ import { EducationalArticle } from '../educational-articles/entities/educational
 import { MachineListing } from '../machine-listings/entities/machine-listing.entity';
 import { Conversation } from '../messaging/entities/conversation.entity';
 import { Message } from '../messaging/entities/message.entity';
+import { Quote } from '../quotes/entities/quote.entity';
 import { SubscriptionPlan } from '../subscriptions/entities/subscription-plan.entity';
 import { UserSubscription } from '../subscriptions/entities/user-subscription.entity';
 import { Payment } from '../payments/entities/payment.entity';
@@ -62,6 +63,7 @@ export const getDatabaseConfig = (
     MachineListing,
     Conversation,
     Message,
+    Quote,
     SubscriptionPlan,
     UserSubscription,
     Payment,
@@ -70,7 +72,16 @@ export const getDatabaseConfig = (
     TicketMessage,
     TicketAttachment,
   ],
-  synchronize: configService.get<string>('NODE_ENV') !== 'production',
+  synchronize: false, // Disabled - tables are created manually via scripts
   logging: configService.get<string>('NODE_ENV') === 'development',
+  extra: {
+    // Connection pool configuration
+    max: 20, // Maximum number of connections in the pool
+    min: 5, // Minimum number of connections in the pool
+    idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+    connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+    // Enable connection pooling
+    poolSize: 20,
+  },
 });
 

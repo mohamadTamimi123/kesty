@@ -15,9 +15,9 @@ export default function ReviewCard({ review, showPortfolio = false }: ReviewCard
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <StarRating rating={review.rating} size="sm" />
-            {review.customer && (
+            {(review.customerName || review.customer?.name) && (
               <span className="text-sm font-medium text-brand-dark-blue">
-                {review.customer.fullName}
+                {review.customerName || review.customer?.name}
               </span>
             )}
           </div>

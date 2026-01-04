@@ -1,17 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRightIcon, DocumentTextIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import MobileLayout from "../../../../components/MobileLayout";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import { CreateCategoryData } from "../../../../types/category";
+import { CreateCategoryData, Category } from "../../../../types/category";
 import apiClient from "../../../../lib/api";
 import { useAuth } from "../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../../utils/logger";
+import { getErrorMessage } from "../../../../utils/errorHandler";
 
 // Simple slug generation function
 const generateSlug = (title: string): string => {
@@ -26,6 +28,7 @@ const generateSlug = (title: string): string => {
 
 export default function CreateCategoryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user: currentUser, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState<CreateCategoryData>({
     title: "",
@@ -33,11 +36,14 @@ export default function CreateCategoryPage() {
     description: "",
     metaTitle: "",
     metaDescription: "",
+    parentId: searchParams.get("parentId") || undefined,
   });
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof CreateCategoryData, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [parentCategory, setParentCategory] = useState<Category | null>(null);
 
   // Check authentication and admin role
   useEffect(() => {
@@ -53,6 +59,54 @@ export default function CreateCategoryPage() {
     }
   }, [isAuthenticated, currentUser, router]);
 
+  // Fetch categories for parent selection
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await apiClient.getCategoryTree();
+        setCategories(Array.isArray(response) ? response : []);
+      } catch (error: unknown) {
+        logger.error("Error fetching categories", error);
+      }
+    };
+
+    if (isAuthenticated && (currentUser?.role === "admin" || currentUser?.role === "ADMIN")) {
+      fetchCategories();
+    }
+  }, [isAuthenticated, currentUser]);
+
+  // Fetch parent category if parentId is provided
+  useEffect(() => {
+    const fetchParent = async () => {
+      if (formData.parentId) {
+        try {
+          const parent = await apiClient.getCategoryById(formData.parentId);
+          setParentCategory(parent);
+        } catch (error: unknown) {
+          logger.error("Error fetching parent category", error);
+        }
+      } else {
+        setParentCategory(null);
+      }
+    };
+
+    if (formData.parentId) {
+      fetchParent();
+    }
+  }, [formData.parentId]);
+
+  // Flatten categories for dropdown
+  const flattenCategories = (cats: Category[], level = 0): Category[] => {
+    const result: Category[] = [];
+    for (const cat of cats) {
+      result.push({ ...cat, title: "  ".repeat(level) + cat.title });
+      if (cat.children && cat.children.length > 0) {
+        result.push(...flattenCategories(cat.children, level + 1));
+      }
+    }
+    return result;
+  };
+
   // Auto-generate slug when title changes
   useEffect(() => {
     if (formData.title && !formData.slug) {
@@ -61,8 +115,8 @@ export default function CreateCategoryPage() {
     }
   }, [formData.title]);
 
-  const handleChange = (field: keyof CreateCategoryData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (field: keyof CreateCategoryData, value: string | undefined) => {
+    setFormData((prev) => ({ ...prev, [field]: value === "" ? undefined : value }));
     
     // Clear error when user starts typing
     if (errors[field]) {
@@ -131,13 +185,14 @@ export default function CreateCategoryPage() {
         icon: iconFile || undefined,
         metaTitle: formData.metaTitle || undefined,
         metaDescription: formData.metaDescription || undefined,
+        parentId: formData.parentId,
       });
 
       toast.success(`کتگوری ${formData.title} با موفقیت ایجاد شد`);
       router.push("/dashboard/admin/categories");
-    } catch (error: any) {
-      console.error("Error creating category:", error);
-      toast.error(error.response?.data?.message || "خطا در ایجاد کتگوری");
+    } catch (error: unknown) {
+      logger.error("Error creating category", error);
+      toast.error(getErrorMessage(error) || "خطا در ایجاد کتگوری");
       setIsLoading(false);
     }
   };
@@ -192,6 +247,37 @@ export default function CreateCategoryPage() {
               error={errors.slug}
               helperText="اسلاگ به صورت خودکار از عنوان تولید می‌شود، اما می‌توانید آن را ویرایش کنید"
             />
+
+            {/* Parent Category Selection */}
+            <div>
+              <label
+                htmlFor="parentId"
+                className="block text-sm font-medium mb-2 text-brand-dark-blue"
+              >
+                دسته والد (اختیاری)
+              </label>
+              <select
+                id="parentId"
+                name="parentId"
+                value={formData.parentId || ""}
+                onChange={(e) =>
+                  handleChange("parentId", e.target.value || undefined)
+                }
+                className="w-full px-4 py-2 border border-brand-medium-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-medium-blue focus:border-brand-medium-blue text-brand-dark-blue"
+              >
+                <option value="">بدون دسته والد (دسته اصلی)</option>
+                {flattenCategories(categories).map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.title}
+                  </option>
+                ))}
+              </select>
+              {parentCategory && (
+                <p className="text-xs text-brand-medium-blue mt-1">
+                  زیردسته‌ای از: {parentCategory.title}
+                </p>
+              )}
+            </div>
 
             <div>
               <label

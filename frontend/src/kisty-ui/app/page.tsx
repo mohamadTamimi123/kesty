@@ -10,6 +10,7 @@ import { Category } from "./types/category";
 import { City } from "./types/city";
 import apiClient from "./lib/api";
 import toast from "react-hot-toast";
+import logger from "./utils/logger";
 import { ChevronDownIcon, PlayIcon } from "@heroicons/react/24/outline";
 
 export default function Home() {
@@ -35,8 +36,8 @@ export default function Home() {
         setCategories(mainCategories);
         // Get top 15 cities
         setCities(citiesData.slice(0, 15));
-      } catch (error: any) {
-        console.error("Error fetching data:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching data", error);
         toast.error("خطا در دریافت اطلاعات");
       } finally {
         setIsLoading(false);
@@ -327,7 +328,7 @@ export default function Home() {
         
         <div className="relative max-w-7xl mx-auto">
           {/* Main Footer Content */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
             {/* Brand & Contact Info */}
             <div className="animate-slide-in" style={{ animationDelay: '0.1s' }}>
               <div className="mb-4">
@@ -354,53 +355,19 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Platform Stats */}
+            {/* Quick Links - General Pages */}
             <div className="animate-slide-in" style={{ animationDelay: '0.2s' }}>
-              <h3 className="text-xl font-bold mb-6 font-display text-brand-light-sky">آمار پلتفرم</h3>
-              <div className="space-y-4">
-                <div className="bg-white/5 rounded-lg p-4 border border-white/10 hover:bg-white/10 transition-all duration-300">
-                  <div className="text-3xl font-bold text-white mb-1">+500</div>
-                  <div className="text-sm text-gray-300">کارگاه فعال</div>
-                </div>
-                <div className="bg-white/5 rounded-lg p-4 border border-white/10 hover:bg-white/10 transition-all duration-300">
-                  <div className="text-3xl font-bold text-white mb-1">+1000</div>
-                  <div className="text-sm text-gray-300">پروژه موفق</div>
-                </div>
-                <div className="flex items-center gap-2 mt-4">
-                  <span className="text-gray-300 text-sm">میانگین امتیاز:</span>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <span key={star} className="text-yellow-400 text-lg hover:scale-110 transition-transform cursor-default">
-                        ★
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Key Categories */}
-            <div className="animate-slide-in" style={{ animationDelay: '0.3s' }}>
-              <h3 className="text-xl font-bold mb-6 font-display text-brand-light-sky">تخصص‌های کلیدی</h3>
-              <div className="space-y-2">
-                {categories.slice(0, 6).map((category) => (
-                  <Link
-                    key={category.id}
-                    href={`/category/${category.slug}`}
-                    className="block px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-all duration-300 hover:translate-x-[-4px] border border-white/10 hover:border-brand-light-sky/30 group"
-                  >
-                    <span className="text-gray-300 group-hover:text-brand-light-sky transition-colors">
-                      {category.title}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Links */}
-            <div className="animate-slide-in" style={{ animationDelay: '0.4s' }}>
               <h3 className="text-xl font-bold mb-6 font-display text-brand-light-sky">دسترسی سریع</h3>
               <div className="space-y-3">
+                <Link
+                  href="/"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>صفحه اصلی</span>
+                </Link>
                 <Link
                   href="/about"
                   className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
@@ -419,17 +386,24 @@ export default function Home() {
                   </svg>
                   <span>تماس با ما</span>
                 </Link>
-                <a
-                  href="https://linkedin.com/company/keesti"
-                  target="_blank"
-                  rel="nofollow noopener noreferrer"
+                <Link
+                  href="/faq"
                   className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
                 >
                   <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  <span>LinkedIn</span>
-                </a>
+                  <span>سوالات متداول</span>
+                </Link>
+                <Link
+                  href="/changelog"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>تغییرات</span>
+                </Link>
                 <Link
                   href="/brandbook"
                   className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
@@ -438,6 +412,128 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                   <span>برندبوک</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Content Pages */}
+            <div className="animate-slide-in" style={{ animationDelay: '0.3s' }}>
+              <h3 className="text-xl font-bold mb-6 font-display text-brand-light-sky">صفحات محتوا</h3>
+              <div className="space-y-3">
+                <Link
+                  href="/suppliers"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>تولیدکننده‌ها</span>
+                </Link>
+                <Link
+                  href="/education"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>مقالات آموزشی</span>
+                </Link>
+                <Link
+                  href="/machinery-market"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>بازارگاه ماشین‌آلات</span>
+                </Link>
+                <Link
+                  href="/public/projects"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>پروژه‌ها</span>
+                </Link>
+                <Link
+                  href="/messaging"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>پیام‌رسانی</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Key Categories */}
+            <div className="animate-slide-in" style={{ animationDelay: '0.4s' }}>
+              <h3 className="text-xl font-bold mb-6 font-display text-brand-light-sky">تخصص‌های کلیدی</h3>
+              <div className="space-y-2">
+                {categories.slice(0, 6).map((category) => (
+                  <Link
+                    key={category.id}
+                    href={`/category/${category.slug}`}
+                    className="block px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-all duration-300 hover:translate-x-[-4px] border border-white/10 hover:border-brand-light-sky/30 group"
+                  >
+                    <span className="text-gray-300 group-hover:text-brand-light-sky transition-colors">
+                      {category.title}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Dashboard & Auth Links */}
+            <div className="animate-slide-in" style={{ animationDelay: '0.5s' }}>
+              <h3 className="text-xl font-bold mb-6 font-display text-brand-light-sky">حساب کاربری</h3>
+              <div className="space-y-3">
+                <Link
+                  href="/login"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>ورود</span>
+                </Link>
+                <Link
+                  href="/register"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>ثبت نام</span>
+                </Link>
+                <Link
+                  href="/dashboard/customer"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>داشبورد مشتری</span>
+                </Link>
+                <Link
+                  href="/dashboard/supplier"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>داشبورد تولیدکننده</span>
+                </Link>
+                <Link
+                  href="/admin/login"
+                  className="flex items-center gap-3 text-gray-300 hover:text-brand-light-sky transition-all duration-300 hover:translate-x-[-4px] group"
+                >
+                  <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>ورود ادمین</span>
                 </Link>
               </div>
             </div>

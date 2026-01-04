@@ -12,6 +12,7 @@ import { UpdateUserData, UserRole, UserStatus } from "../../../../../types/user"
 import apiClient from "../../../../../lib/api";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../../../utils/logger";
 
 export default function EditUserPage() {
   const router = useRouter();
@@ -67,8 +68,8 @@ export default function EditUserPage() {
           role: normalizeRole(user.role),
           status: user.isBlocked ? "blocked" : (user.isActive ? "active" : "inactive") as UserStatus,
         });
-      } catch (error: any) {
-        console.error("Error fetching user:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching user", error);
         toast.error(error.response?.data?.message || "کاربر یافت نشد");
         router.push("/dashboard/admin/users");
       } finally {
@@ -176,8 +177,8 @@ export default function EditUserPage() {
 
       toast.success(`اطلاعات کاربر ${formData.name} با موفقیت به‌روزرسانی شد`);
       router.push("/dashboard/admin/users");
-    } catch (error: any) {
-      console.error("Error updating user:", error);
+    } catch (error: unknown) {
+      logger.error("Error updating user", error);
       toast.error(error.response?.data?.message || "خطا در به‌روزرسانی کاربر");
       setIsLoading(false);
     }

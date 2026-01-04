@@ -12,8 +12,10 @@ export interface Review {
   id: string;
   portfolioId: string;
   portfolio?: Portfolio;
-  customerId: string;
-  customer?: User;
+  customerId: string | null;
+  customer?: User | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
   supplierId: string;
   supplier?: User;
   rating: number; // 1-5
@@ -32,8 +34,11 @@ export interface ReviewRequest {
   portfolio?: Portfolio;
   supplierId: string;
   supplier?: User;
-  customerId: string;
-  customer?: User;
+  customerId: string | null;
+  customer?: User | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  token?: string | null;
   status: ReviewRequestStatus;
   message?: string;
   expiresAt?: string;
@@ -49,7 +54,10 @@ export interface CreateReviewData {
 
 export interface CreateReviewRequestData {
   portfolioId: string;
-  customerId: string;
+  customerId?: string;
+  customerName?: string;
+  customerEmail?: string;
   message?: string;
+  generateToken?: boolean; // If true, generate one-time token instead of requiring customerId
 }
 

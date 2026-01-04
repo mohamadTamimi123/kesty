@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
@@ -30,6 +30,20 @@ export class UsersService {
     email?: string;
     role?: UserRole;
   }): Promise<User> {
+    // Check if user with this phone already exists
+    const existingUser = await this.findByPhone(userData.phone);
+    if (existingUser) {
+      throw new ConflictException(`کاربری با شماره موبایل ${userData.phone} قبلاً ثبت نام کرده است`);
+    }
+
+    // Check if email is provided and already exists
+    if (userData.email) {
+      const existingEmail = await this.findByEmail(userData.email);
+      if (existingEmail) {
+        throw new ConflictException(`کاربری با ایمیل ${userData.email} قبلاً ثبت نام کرده است`);
+      }
+    }
+
     const passwordHash = userData.password
       ? await bcrypt.hash(userData.password, 10)
       : null;
@@ -138,6 +152,105 @@ export class UsersService {
     }
 
     return null;
+  }
+
+  /**
+   * Generate slug for a supplier
+   */
+  generateSlugForSupplier(supplier: User): string {
+    return this.generateSlug(supplier.workshopName || supplier.fullName);
+  }
+
+  /**
+   * Find suppliers with filters and pagination
+   */
+  async findSuppliers(filters?: {
+    skip?: number;
+    take?: number;
+    search?: string;
+    cityId?: string;
+    categoryId?: string;
+  }): Promise<User[]> {
+    const queryBuilder = this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: UserRole.SUPPLIER })
+      .andWhere('user.isActive = :isActive', { isActive: true });
+
+    if (filters?.search) {
+      queryBuilder.andWhere(
+        '(user.workshopName ILIKE :search OR user.fullName ILIKE :search)',
+        { search: `%${filters.search}%` }
+      );
+    }
+
+    if (filters?.cityId) {
+      queryBuilder.andWhere('user.city = :cityId', { cityId: filters.cityId });
+    }
+
+    queryBuilder.orderBy('user.createdAt', 'DESC');
+
+    if (filters?.skip !== undefined) {
+      queryBuilder.skip(filters.skip);
+    }
+
+    if (filters?.take !== undefined) {
+      queryBuilder.take(filters.take);
+    }
+
+    return queryBuilder.getMany();
+  }
+
+  /**
+   * Count suppliers with filters
+   */
+  async countSuppliers(filters?: {
+    search?: string;
+    cityId?: string;
+    categoryId?: string;
+  }): Promise<number> {
+    const queryBuilder = this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: UserRole.SUPPLIER })
+      .andWhere('user.isActive = :isActive', { isActive: true });
+
+    if (filters?.search) {
+      queryBuilder.andWhere(
+        '(user.workshopName ILIKE :search OR user.fullName ILIKE :search)',
+        { search: `%${filters.search}%` }
+      );
+    }
+
+    if (filters?.cityId) {
+      queryBuilder.andWhere('user.city = :cityId', { cityId: filters.cityId });
+    }
+
+    return queryBuilder.getCount();
+  }
+
+  /**
+   * Search users by role (for customer search)
+   */
+  async searchUsers(query: string, role?: UserRole, limit: number = 10): Promise<User[]> {
+    const queryBuilder = this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.isActive = :isActive', { isActive: true });
+
+    if (role) {
+      queryBuilder.andWhere('user.role = :role', { role });
+    }
+
+    if (query && query.trim().length > 0) {
+      queryBuilder.andWhere(
+        '(user.fullName ILIKE :search OR user.phone ILIKE :search OR user.email ILIKE :search)',
+        { search: `%${query.trim()}%` }
+      );
+    }
+
+    queryBuilder
+      .orderBy('user.fullName', 'ASC')
+      .take(limit);
+
+    return queryBuilder.getMany();
   }
 }
 

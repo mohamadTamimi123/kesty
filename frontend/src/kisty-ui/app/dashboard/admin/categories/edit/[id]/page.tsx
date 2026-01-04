@@ -12,6 +12,8 @@ import { UpdateCategoryData, Category } from "../../../../../types/category";
 import apiClient from "../../../../../lib/api";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../../../utils/logger";
+import { getErrorMessage } from "../../../../../utils/errorHandler";
 
 // Simple slug generation function
 const generateSlug = (title: string): string => {
@@ -50,12 +52,14 @@ export default function EditCategoryPage() {
     isActive: true,
     metaTitle: "",
     metaDescription: "",
+    parentId: null,
   });
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof UpdateCategoryData, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingCategory, setIsLoadingCategory] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // Check authentication and admin role
   useEffect(() => {
@@ -71,6 +75,22 @@ export default function EditCategoryPage() {
     }
   }, [isAuthenticated, currentUser, router]);
 
+  // Fetch categories for parent selection
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await apiClient.getCategoryTree();
+        setCategories(Array.isArray(response) ? response : []);
+      } catch (error: unknown) {
+        logger.error("Error fetching categories", error);
+      }
+    };
+
+    if (isAuthenticated && (currentUser?.role === "admin" || currentUser?.role === "ADMIN")) {
+      fetchCategories();
+    }
+  }, [isAuthenticated, currentUser]);
+
   // Load category data
   useEffect(() => {
     const fetchCategory = async () => {
@@ -85,6 +105,7 @@ export default function EditCategoryPage() {
           isActive: categoryData.isActive,
           metaTitle: categoryData.metaTitle || "",
           metaDescription: categoryData.metaDescription || "",
+          parentId: categoryData.parentId || null,
         });
         
         // Set icon preview if exists
@@ -94,9 +115,10 @@ export default function EditCategoryPage() {
             setIconPreview(iconUrl);
           }
         }
-      } catch (error: any) {
-        console.error("Error fetching category:", error);
-        toast.error(error.response?.data?.message || "خطا در دریافت اطلاعات کتگوری");
+      } catch (error: unknown) {
+        logger.error("Error fetching category", error);
+        const errorMessage = (error as any)?.response?.data?.message || "خطا در دریافت اطلاعات کتگوری";
+        toast.error(errorMessage);
         router.push("/dashboard/admin/categories");
       } finally {
         setIsLoadingCategory(false);
@@ -108,6 +130,19 @@ export default function EditCategoryPage() {
     }
   }, [isAuthenticated, currentUser, categoryId, router]);
 
+  // Flatten categories for dropdown (excluding current category and its descendants)
+  const flattenCategories = (cats: Category[], excludeId?: string, level = 0): Category[] => {
+    const result: Category[] = [];
+    for (const cat of cats) {
+      if (cat.id === excludeId) continue; // Skip current category
+      result.push({ ...cat, title: "  ".repeat(level) + cat.title });
+      if (cat.children && cat.children.length > 0) {
+        result.push(...flattenCategories(cat.children, excludeId, level + 1));
+      }
+    }
+    return result;
+  };
+
   // Auto-generate slug when title changes (only if slug is empty or matches old title)
   useEffect(() => {
     if (formData.title && category && (!formData.slug || formData.slug === generateSlug(category.title))) {
@@ -116,8 +151,8 @@ export default function EditCategoryPage() {
     }
   }, [formData.title, category]);
 
-  const handleChange = (field: keyof UpdateCategoryData, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (field: keyof UpdateCategoryData, value: string | boolean | null | undefined) => {
+    setFormData((prev) => ({ ...prev, [field]: value === "" ? null : value }));
     
     // Clear error when user starts typing
     if (errors[field]) {
@@ -185,13 +220,14 @@ export default function EditCategoryPage() {
         icon: iconFile || undefined,
         metaTitle: formData.metaTitle,
         metaDescription: formData.metaDescription,
+        parentId: formData.parentId,
       });
 
       toast.success(`کتگوری ${formData.title} با موفقیت به‌روزرسانی شد`);
       router.push("/dashboard/admin/categories");
-    } catch (error: any) {
-      console.error("Error updating category:", error);
-      toast.error(error.response?.data?.message || "خطا در به‌روزرسانی کتگوری");
+    } catch (error: unknown) {
+      logger.error("Error updating category", error);
+      toast.error(getErrorMessage(error) || "خطا در به‌روزرسانی کتگوری");
       setIsLoading(false);
     }
   };
@@ -291,6 +327,35 @@ export default function EditCategoryPage() {
                 />
                 <span className="text-sm text-brand-dark-blue">فعال</span>
               </label>
+            </div>
+
+            {/* Parent Category Selection */}
+            <div>
+              <label
+                htmlFor="parentId"
+                className="block text-sm font-medium mb-2 text-brand-dark-blue"
+              >
+                دسته والد (اختیاری)
+              </label>
+              <select
+                id="parentId"
+                name="parentId"
+                value={formData.parentId || ""}
+                onChange={(e) =>
+                  handleChange("parentId", e.target.value || null)
+                }
+                className="w-full px-4 py-2 border border-brand-medium-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-medium-blue focus:border-brand-medium-blue text-brand-dark-blue"
+              >
+                <option value="">بدون دسته والد (دسته اصلی)</option>
+                {flattenCategories(categories, categoryId).map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.title}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-brand-medium-blue mt-1">
+                توجه: نمی‌توانید دسته را والد خودش یا زیرمجموعه‌هایش قرار دهید
+              </p>
             </div>
 
             <div>

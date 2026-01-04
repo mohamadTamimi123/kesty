@@ -28,10 +28,22 @@ export class AuthService {
     // Check if user already exists
     const existingUser = await this.usersService.findByPhone(phone);
 
-    // Send OTP (works for both new and existing users)
+    // If user exists and has a password, this is a login attempt, not registration
+    if (existingUser && existingUser.passwordHash) {
+      // User already registered with password - they should use login endpoint
+      // But we'll still send OTP for login flow compatibility
+      const otpResult = await this.otpService.sendOtp(phone);
+      return {
+        message: 'کد تایید ارسال شد',
+        expiresIn: otpResult.expiresIn,
+        ...(otpResult.code && { code: otpResult.code }), // Only in mock mode
+        isExistingUser: true,
+      };
+    }
+
+    // Send OTP (for new users or users without password)
     const otpResult = await this.otpService.sendOtp(phone);
 
-    // If user doesn't exist, we'll create them after OTP verification
     // If user exists but no password and password provided, update password
     if (existingUser && !existingUser.passwordHash && password) {
       await this.usersService.update(existingUser.id, {
@@ -49,11 +61,12 @@ export class AuthService {
       message: 'کد تایید ارسال شد',
       expiresIn: otpResult.expiresIn,
       ...(otpResult.code && { code: otpResult.code }), // Only in mock mode
+      isExistingUser: !!existingUser,
     };
   }
 
   async verifyOtp(verifyOtpDto: VerifyOtpDto, ip?: string) {
-    const { phone, otp, role } = verifyOtpDto;
+    const { phone, otp, role, fullName } = verifyOtpDto;
 
     const isValid = await this.otpService.verifyOtp(phone, otp);
     if (!isValid) {
@@ -65,16 +78,28 @@ export class AuthService {
     if (!user) {
       // For new users, use fullName and role from verify-otp if provided, otherwise default
       const userRole = role || UserRole.CUSTOMER;
-      user = await this.usersService.create({
-        phone,
-        fullName: verifyOtpDto.fullName || `User ${phone}`, // Default name, should be updated later
-        role: userRole,
-      });
+      try {
+        user = await this.usersService.create({
+          phone,
+          fullName: fullName || `User ${phone}`, // Default name, should be updated later
+          role: userRole,
+        });
+      } catch (error: any) {
+        // If user was created between register and verify-otp, find them
+        if (error.message?.includes('قبلاً ثبت نام کرده است')) {
+          user = await this.usersService.findByPhone(phone);
+          if (!user) {
+            throw new UnauthorizedException('خطا در ایجاد کاربر');
+          }
+        } else {
+          throw error;
+        }
+      }
     } else {
       // Update user if needed (only fullName, don't change role for existing users)
-      if (verifyOtpDto.fullName && user.fullName !== verifyOtpDto.fullName) {
+      if (fullName && user.fullName !== fullName) {
         await this.usersService.update(user.id, {
-          fullName: verifyOtpDto.fullName,
+          fullName,
         });
         user = await this.usersService.findById(user.id);
       }
@@ -82,6 +107,11 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('کاربر یافت نشد');
+    }
+
+    // Check if user is blocked
+    if (user.isBlocked || !user.isActive) {
+      throw new UnauthorizedException('حساب کاربری شما غیرفعال است');
     }
 
     // Update last login

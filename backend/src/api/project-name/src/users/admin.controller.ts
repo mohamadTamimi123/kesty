@@ -10,6 +10,8 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -55,7 +57,7 @@ export class AdminUsersController {
   async getUserById(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
     // Remove sensitive data
     return {
@@ -96,14 +98,14 @@ export class AdminUsersController {
     // Check if phone already exists
     const existingUser = await this.usersService.findByPhone(createUserDto.phone);
     if (existingUser) {
-      throw new Error('شماره موبایل قبلاً ثبت شده است');
+      throw new ConflictException('شماره موبایل قبلاً ثبت شده است');
     }
 
     // Check if email already exists (if provided)
     if (createUserDto.email) {
       const existingEmail = await this.usersService.findByEmail(createUserDto.email);
       if (existingEmail) {
-        throw new Error('ایمیل قبلاً ثبت شده است');
+        throw new ConflictException('ایمیل قبلاً ثبت شده است');
       }
     }
 
@@ -133,14 +135,14 @@ export class AdminUsersController {
   async updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     const user = await this.usersService.findById(id);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     // Check if phone is being changed and already exists
     if (updateUserDto.phone && updateUserDto.phone !== user.phone) {
       const existingUser = await this.usersService.findByPhone(updateUserDto.phone);
       if (existingUser && existingUser.id !== id) {
-        throw new Error('شماره موبایل قبلاً ثبت شده است');
+        throw new ConflictException('شماره موبایل قبلاً ثبت شده است');
       }
     }
 
@@ -148,7 +150,7 @@ export class AdminUsersController {
     if (updateUserDto.email && updateUserDto.email !== user.email) {
       const existingEmail = await this.usersService.findByEmail(updateUserDto.email);
       if (existingEmail && existingEmail.id !== id) {
-        throw new Error('ایمیل قبلاً ثبت شده است');
+        throw new ConflictException('ایمیل قبلاً ثبت شده است');
       }
     }
 

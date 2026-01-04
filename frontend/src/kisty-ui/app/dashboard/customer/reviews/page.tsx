@@ -7,6 +7,7 @@ import { ReviewRequest } from "../../../types/review";
 import apiClient from "../../../lib/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import toast from "react-hot-toast";
+import logger from "../../../utils/logger";
 import Button from "../../../components/Button";
 
 export default function CustomerReviewsPage() {
@@ -28,8 +29,8 @@ export default function CustomerReviewsPage() {
         setIsLoading(true);
         const response = await apiClient.getMyReviews();
         setRequests(Array.isArray(response) ? response : []);
-      } catch (error: any) {
-        console.error("Error fetching review requests:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching review requests", error);
         toast.error(error.response?.data?.message || "خطا در دریافت درخواست‌ها");
       } finally {
         setIsLoading(false);

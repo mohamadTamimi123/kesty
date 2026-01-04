@@ -6,6 +6,7 @@ import { EducationalArticle } from "../types/article";
 import { Category } from "../types/category";
 import apiClient from "../lib/api";
 import toast from "react-hot-toast";
+import logger from "../utils/logger";
 
 export default function EducationPage() {
   const [latestArticles, setLatestArticles] = useState<EducationalArticle[]>([]);
@@ -28,8 +29,8 @@ export default function EducationPage() {
         setLatestArticles(articles.slice(0, 6));
         setPopularArticles(popular);
         setCategories(categoriesData.filter((cat: Category) => !cat.parentId));
-      } catch (error: any) {
-        console.error("Error fetching articles:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching articles", error);
         toast.error("خطا در دریافت مقالات");
       } finally {
         setIsLoading(false);
@@ -45,8 +46,8 @@ export default function EducationPage() {
         try {
           const articles = await apiClient.getArticlesByCategory(selectedCategory);
           setCategoryArticles(articles);
-        } catch (error: any) {
-          console.error("Error fetching category articles:", error);
+        } catch (error: unknown) {
+          logger.error("Error fetching category articles", error);
           toast.error("خطا در دریافت مقالات دسته‌بندی");
         }
       };

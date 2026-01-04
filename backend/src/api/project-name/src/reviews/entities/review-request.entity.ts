@@ -39,13 +39,23 @@ export class ReviewRequest {
   @JoinColumn({ name: 'supplier_id' })
   supplier: User;
 
-  @Column({ name: 'customer_id', type: 'uuid' })
+  @Column({ name: 'customer_id', type: 'uuid', nullable: true })
   @Index()
-  customerId: string;
+  customerId: string | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'customer_id' })
-  customer: User;
+  customer: User | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, unique: true })
+  @Index()
+  token: string | null;
+
+  @Column({ name: 'customer_name', type: 'varchar', length: 255, nullable: true })
+  customerName: string | null;
+
+  @Column({ name: 'customer_email', type: 'varchar', length: 255, nullable: true })
+  customerEmail: string | null;
 
   @Column({
     type: 'enum',

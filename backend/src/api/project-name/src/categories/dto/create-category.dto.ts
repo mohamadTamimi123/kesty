@@ -21,6 +21,11 @@ export class CreateCategoryDto {
   parentId?: string;
 
   @IsInt()
+  @Min(0)
+  @IsOptional()
+  order?: number;
+
+  @IsInt()
   @Min(1)
   @IsOptional()
   level?: number;

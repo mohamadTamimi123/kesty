@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import Breadcrumb, { BreadcrumbItem } from "../../../components/Breadcrumb";
-import { MachineListing, ListingType, MachineCondition } from "../../../types/machine-listing";
-import apiClient from "../../../lib/api";
+import Breadcrumb, { BreadcrumbItem } from "../../components/Breadcrumb";
+import { MachineListing, ListingType, MachineCondition } from "../../types/machine-listing";
+import apiClient from "../../lib/api";
 import toast from "react-hot-toast";
+import logger from "../../utils/logger";
 
 export default function MachineListingPage() {
   const params = useParams();
@@ -19,8 +20,8 @@ export default function MachineListingPage() {
         setIsLoading(true);
         const listingData = await apiClient.getMachineListingBySlug(slug);
         setListing(listingData);
-      } catch (error: any) {
-        console.error("Error fetching listing:", error);
+      } catch (error: unknown) {
+        logger.error("Error fetching listing", error);
         toast.error("خطا در دریافت آگهی");
       } finally {
         setIsLoading(false);

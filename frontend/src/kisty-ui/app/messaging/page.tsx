@@ -5,14 +5,17 @@ import { useRouter } from "next/navigation";
 import apiClient from "../lib/api";
 import { Conversation } from "../types/messaging";
 import toast from "react-hot-toast";
-import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
+import logger from "../utils/logger";
+import { ChatBubbleLeftRightIcon, WifiIcon, SignalSlashIcon } from "@heroicons/react/24/outline";
 import { useMessagingSocket } from "../hooks/useMessagingSocket";
+import LoadingSpinner from "../components/LoadingSpinner";
+import EmptyState from "../components/EmptyState";
 
 export default function MessagingPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { onNewMessage, onConversationUpdate } = useMessagingSocket();
+  const { onNewMessage, onConversationUpdate, isConnected, reconnectAttempts } = useMessagingSocket();
 
   useEffect(() => {
     fetchConversations();
@@ -43,8 +46,8 @@ export default function MessagingPage() {
       setIsLoading(true);
       const data = await apiClient.getConversations();
       setConversations(data);
-    } catch (error: any) {
-      console.error("Error fetching conversations:", error);
+    } catch (error: unknown) {
+      logger.error("Error fetching conversations", error);
       toast.error("خطا در دریافت مکالمات");
     } finally {
       setIsLoading(false);
@@ -54,7 +57,7 @@ export default function MessagingPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-brand-off-white flex items-center justify-center">
-        <div className="text-brand-medium-blue">در حال بارگذاری...</div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -62,15 +65,34 @@ export default function MessagingPage() {
   return (
     <div className="min-h-screen bg-brand-off-white">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-brand-dark-blue mb-6 font-display">
-          پیام‌های من
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-brand-dark-blue font-display">
+            پیام‌های من
+          </h1>
+          {/* Connection Status Indicator */}
+          <div className="flex items-center gap-2">
+            {isConnected ? (
+              <div className="flex items-center gap-2 text-green-600">
+                <WifiIcon className="w-5 h-5" />
+                <span className="text-sm font-medium">آنلاین</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-red-600">
+                <SignalSlashIcon className="w-5 h-5" />
+                <span className="text-sm font-medium">
+                  {reconnectAttempts > 0 ? `در حال اتصال مجدد... (${reconnectAttempts})` : 'آفلاین'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
 
         {conversations.length === 0 ? (
-          <div className="bg-white rounded-lg border border-brand-medium-gray p-12 text-center">
-            <ChatBubbleLeftRightIcon className="w-16 h-16 text-brand-medium-gray mx-auto mb-4" />
-            <p className="text-brand-medium-blue">هنوز مکالمه‌ای وجود ندارد</p>
-          </div>
+          <EmptyState
+            icon={<ChatBubbleLeftRightIcon className="w-16 h-16 text-brand-medium-gray mx-auto" />}
+            title="هنوز مکالمه‌ای وجود ندارد"
+            description="وقتی با تولیدکنندگان یا مشتریان ارتباط برقرار کنید، مکالمات شما در اینجا نمایش داده می‌شوند"
+          />
         ) : (
           <div className="space-y-4">
             {conversations.map((conversation) => {
